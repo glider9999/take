@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Take 客户端核心安全权限集",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "acp-claude",
+          "cmd": "claude-code",
+          "args": ["--acp", "--stdio"]
+        },
+        {
+          "name": "acp-cursor",
+          "cmd": "cursor-agent",
+          "args": ["--mode=acp"]
+        },
+        {
+          "name": "acp-aider",
+          "cmd": "aider",
+          "args": ["--acp"]
+        }
+      ]
+    }
+  ]
+}
+
