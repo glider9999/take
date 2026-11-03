@@ -1,0 +1,88 @@
+{
+  "version": "1.0.0",
+  "models": [
+    {
+      "id": "claude-3-7-sonnet",
+      "name": "Claude 3.7 Sonnet",
+      "provider": "anthropic",
+      "driverType": "cloud_api",
+      "defaultBaseUrl": "https://api.anthropic.com/v1",
+      "contextWindow": 200000,
+      "supportsStreaming": true,
+      "requiredHeaders": {
+        "anthropic-dangerous-direct-browser-access": "true",
+        "anthropic-version": "2023-06-01"
+      },
+      "category": "reasoning"
+    },
+    {
+      "id": "gpt-4o",
+      "name": "GPT-4o",
+      "provider": "openai",
+      "driverType": "cloud_api",
+      "defaultBaseUrl": "https://api.openai.com/v1",
+      "contextWindow": 128000,
+      "supportsStreaming": true,
+      "requiredHeaders": {},
+      "category": "general"
+    },
+    {
+      "id": "gemini-2-0-flash",
+      "name": "Gemini 2.0 Flash",
+      "provider": "google",
+      "driverType": "cloud_api",
+      "defaultBaseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "contextWindow": 1048576,
+      "supportsStreaming": true,
+      "requiredHeaders": {},
+      "category": "fast"
+    },
+    {
+      "id": "deepseek-reasoner",
+      "name": "DeepSeek R1",
+      "provider": "deepseek",
+      "driverType": "cloud_api",
+      "defaultBaseUrl": "https://api.deepseek.com",
+      "contextWindow": 64000,
+      "supportsStreaming": true,
+      "requiredHeaders": {},
+      "category": "reasoning"
+    },
+    {
+      "id": "moonshot-v1-32k",
+      "name": "Kimi Moonshot v1",
+      "provider": "moonshot",
+      "driverType": "cloud_api",
+      "defaultBaseUrl": "https://api.moonshot.cn/v1",
+      "contextWindow": 32000,
+      "supportsStreaming": true,
+      "requiredHeaders": {},
+      "category": "general"
+    },
+    {
+      "id": "openrouter-auto",
+      "name": "OpenRouter Auto Router",
+      "provider": "openrouter",
+      "driverType": "cloud_api",
+      "defaultBaseUrl": "https://openrouter.ai/api/v1",
+      "contextWindow": 128000,
+      "supportsStreaming": true,
+      "requiredHeaders": {
+        "HTTP-Referer": "https://take.im",
+        "X-Title": "Take Client"
+      },
+      "category": "general"
+    },
+    {
+      "id": "claude-code-acp",
+      "name": "Claude Code (ACP Local)",
+      "provider": "local-cli",
+      "driverType": "local_acp",
+      "contextWindow": 100000,
+      "supportsStreaming": true,
+      "requiredHeaders": {},
+      "category": "coding"
+    }
+  ]
+}
+
