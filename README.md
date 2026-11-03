@@ -1,61 +1,90 @@
-# Take
+# TakeChat (`glider9999/take`)
 
-**An open-source group-chat client that brings multiple AI agents into one conversation to work together.**
+> **通用多智能体群聊协作客户端 · 真正开源、纯本地安全、多厂商大模型协同**  
+> 遵循 **Apache-2.0** 开源许可证
 
-把多家 AI 拉进一个群，分工干活。/ Bring Claude, ChatGPT, Gemini, Grok, Kimi, DeepSeek — and your local CLI agents — into a single group chat, share one context, and let each do what it does best.
+---
 
-![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Status](https://img.shields.io/badge/status-pre--production-orange)
+## 🌟 为什么选择 TakeChat？
 
-> Status: **pre-production**. The architecture is finalised (see [docs/take-framework-final.md](docs/take-framework-final.md)); Phase 1 implementation has not started yet. The first release will ship **unsigned** — see the install notes under [Quick start](#quick-start).
+与传统单模型聊天界面或封闭商业客户端不同，**TakeChat** 将多家 AI（Claude、ChatGPT、Gemini、DeepSeek、Kimi、Grok 等）及本地编程 CLI 作为“独立联系人”拉进同一个群聊。
 
-## Why Take
+- **八对一智囊团协作**：支持单聊、@定向点名与全员会诊三种模式。
+- **动态互见手艺**：先答者的输出结论自动对后答者可见，形成多模型认知对齐与深度接力。
+- **纯本地绝对安全**：零中心服务器，数据与密钥全程锁在操作系统原生安全凭据库或浏览器本地。
+- **双版本并行**：
+  - 🌐 **浏览器轻装版**：托管于 GitHub Pages，打开网页即用，只连云端 API，零服务器运维。
+  - 🖥️ **本地部署完全版**：基于 Tauri v2 驱动的轻量桌面端，支持云端 API ＋ 本地 CLI/ACP ＋ 本地 ComfyUI 影像排错全能力。
 
-Single-model tools work in isolation: you copy prompts from one app, paste answers into another, and lose the thread in between. Closed multi-agent tools keep your keys and your projects on someone else's server.
+---
 
-Take takes the opposite route:
+## 🛠️ 从源码构建（拓扑依赖构建说明）
 
-- **Many agents, one room** — cloud APIs and local CLI agents in the same group chat, sharing context, taking turns, handing work to each other.
-- **Local first** — no central server. Your keys and data stay on your machine; traffic goes from your device straight to each provider's official API.
-- **APIs + local CLIs mixed** — hosted models for reach, local agents (via ACP / PTY adapters) and local tools such as ComfyUI for real work.
-- **Fully open source** — Apache-2.0, auditable, self-installed.
-- **For any work** — Take grew out of AI filmmaking (a director consulting several models at once), and that is only the launch scenario. Writing, coding, research, planning: any task where several AIs are better than one.
+本项目采用 `pnpm workspaces` Monorepo 架构。由于各外壳与应用直接依赖内部核心包编译后的产物，构建时必须严格遵循**拓扑依赖编译顺序**：
 
-## Features
+```bash
+# 1. 克隆代码仓库
+git clone https://github.com/glider9999/take.git
+cd take
 
-- Group chat with multiple AI providers side by side: single chat, @-mention, or full-panel consultation modes
-- Built-in loop protection and context control (recent-window + rolling summary), so a session cannot spiral or silently burn budget
-- Local usage ledger with your own soft budget alerts — no server-side metering, no surprises
-- Tool access in three permission tiers; destructive actions always require your explicit click
-- Preset rooms and custom agents: ship a room setup as a shareable preset package and import others'
-- Two editions, one engine and one UI:
-  - **Browser edition** — pure front-end, runs from a static page, keys stored in your browser, cloud APIs only
-  - **Local edition** — Tauri v2 desktop app (or Docker local Web), with OS-keychain key storage, local CLI agents and local tools
+# 2. 安装全部工程依赖
+pnpm install
 
-## Quick start
+# 3. 按照拓扑依赖顺序全量构建（engine -> ui -> adapters -> web / desktop）
+pnpm -r build
+```
 
-Planned distribution (Phase 3):
+### 分模块独立运行与开发调试
+- **运行浏览器 Web 开发服**：
+  ```bash
+  pnpm --filter @take/web dev
+  # 浏览器访问 http://localhost:3000
+  ```
+- **运行桌面原生客户端**：
+  ```bash
+  pnpm --filter @take/desktop tauri dev
+  ```
+- **执行自动化单元测试套件**：
+  ```bash
+  # 运行引擎与账本单测
+  pnpm --filter @take/engine test
+  # 运行连接层与适配器单测
+  pnpm --filter @take/adapters test
+  # 运行工具权限门单测
+  pnpm --filter @take/tools test
+  ```
 
-1. **Browser edition**: open the GitHub Pages site, add your provider keys, start your first room. No install.
-2. **Desktop edition**: download the build for macOS / Windows / Linux from Releases, launch it, add your keys.
-   - Early builds are **unsigned**. On macOS, if Gatekeeper blocks the app, right-click the app and choose **Open**, then confirm. On Windows, if SmartScreen warns, choose **More info → Run anyway**.
-3. **Docker**: `docker run -d -p 3000:3000 -v ~/.take-data:/app/data glider9999/take:latest`, then open http://localhost:3000
-4. **Developers**: Node.js ≥ 20 + Rust toolchain, then `pnpm install && pnpm tauri dev`
+---
 
-## Security
+## 🛡️ 未签名安装放行指南（Gatekeeper / SmartScreen 绕行说明）
 
-- No central server, no telemetry of your conversations: by design there is nowhere for your data to be reported to.
-- Local edition stores keys in the OS credential store (macOS Keychain / Windows Credential Manager / Linux Secret Service) via the OS keyring — never in plain text files.
-- Browser edition stores keys in your browser's local storage. That is **less secure** than the local edition; the UI says so plainly, and an optional session-only mode keeps keys only until the tab closes.
-- Tool calls run under a three-tier permission model; shell execution and file writes always stop for your confirmation.
+为了让所有开源社区用户零门槛自由使用，TakeChat 首发阶段暂缓采购昂贵的企业签名证书（无代码篡改，完全开源透明）。因此在首次安装桌面客户端时，系统可能会弹出未知开发者安全提示，请按以下指引手动放行：
 
-## 中文简介
+### 1. macOS (Apple Gatekeeper 拦截处理)
+- **现象**：双击 `.dmg` 安装并打开应用时，系统弹出提示：“无法打开 TakeChat，因为无法验证开发者”。
+- **放行方法（任选其一）**：
+  - **方法 A（界面操作）**：打开 macOS「系统设置」->「隐私与安全性」，向下滑动至“安全性”一栏，会看到“已阻止使用 TakeChat”，点击右侧的 **「仍要打开」**，输入开机密码即可正常运行。
+  - **方法 B（终端单行命令）**：打开「终端」App，执行以下命令清除隔离属性：
+    ```bash
+    xattr -cr /Applications/TakeChat.app
+    ```
 
-Take 是一个开源的多智能体群聊客户端：把 Claude、ChatGPT、Gemini、Grok、Kimi、DeepSeek 等多家 AI（以及你本机的 CLI Agent）拉进同一个群聊，共享上下文、轮流接力、各展所长。它源于 AI 影像创作中「多个模型会诊」的真实用法，但适用于一切工作。无中心服务器，Key 与数据只存你本机；首发两个版本——浏览器版（纯前端、即开即用）与本地部署版（Tauri 桌面 / Docker，全能力）。由 [take.hk](https://take.hk) 发起与分享。
+### 2. Windows (Microsoft Defender SmartScreen 拦截处理)
+- **现象**：双击运行安装包时，弹出蓝色窗口提示：“Windows 已保护你的电脑，Microsoft Defender SmartScreen 已阻止无法识别的应用启动”。
+- **放行方法**：
+  - 点击提示弹窗中的 **「更多信息」**（More info）超链接；
+  - 随后点击右下角出现的 **「仍要运行」**（Run anyway）按钮即可开始安装。
 
-## Documentation
+### 3. Linux
+- 下载 `.AppImage` 文件后，赋予可执行权限即可直接运行：
+  ```bash
+  chmod +x TakeChat-x.x.x.AppImage
+  ./TakeChat-x.x.x.AppImage
+  ```
 
-- [Final architecture & implementation framework (定版母本)](docs/take-framework-final.md) — the build source of truth: positioning, editions, context engine, security model, repository layout, phasing.
+---
 
-## License
+## 📄 开源许可证与社区合规
 
-Apache License 2.0 — see [LICENSE](LICENSE). The Apache-2.0 license does not grant rights to the **Take** name or brand assets.
+本项目遵循 **Apache License 2.0** 许可证开源，完整第三方开源依赖声明详见 `THIRD_PARTY_NOTICES.md`。
+
