@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.turbo/
+
+# Rust / Cargo / Tauri
+target/
+src-tauri/target/
+*.pdb
+
+# Local environment & API Keys
+.env
+.env.*
+!.env.example
+*.local
+
+# SQLite & local runtime data
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+data/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+--- end file ---
