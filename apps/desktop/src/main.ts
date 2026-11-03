@@ -1,4 +1,5 @@
-import { ChatApp } from './components/ChatApp.js';
+import { ChatApp } from '@take/ui';
+import '@take/ui/styles/app.css';
 
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('app');
