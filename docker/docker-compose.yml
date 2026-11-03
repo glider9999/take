@@ -1,0 +1,13 @@
+# Take — Docker local Web mode (placeholder, Phase 1)
+# 定版口径：后端与桌面版共用同一 Rust 核心（headless 模式），禁止另写一套后端。
+# The backend shares the same Rust core as the desktop app (headless mode).
+# TODO(phase-1): wire the headless core service here (build/image, port, data volume).
+services:
+  take:
+    # image: glider9999/take:latest
+    # build: ..
+    # ports:
+    #   - "3000:3000"
+    # volumes:
+    #   - ~/.take-data:/app/data
+    command: ["echo", "Take Docker mode is not built yet — see docs/take-framework-final.md"]
