@@ -1,0 +1,32 @@
+{
+  "id": "prompt-clinic",
+  "name": "提示词会诊室",
+  "description": "针对 AI 视频与生图提示词进行多模型词条压制、构图推敲与镜头语言优化",
+  "defaultMode": "broadcast",
+  "version": "1.0.0",
+  "defaultTools": ["tool_search"],
+  "agents": [
+    {
+      "id": "Cl",
+      "name": "Claude",
+      "systemPrompt": "写提示词 · 提示词专家。负责针对景别、色温、雨丝或材质质感给出最精炼的高权重英文提示词。",
+      "provider": "anthropic",
+      "modelName": "claude-3-7-sonnet"
+    },
+    {
+      "id": "Gk",
+      "name": "Grok Bot",
+      "systemPrompt": "搭工作流 · 工作流专家。负责将提示词衔接至可运行的节点管线，并设定图生视频运镜参数。",
+      "provider": "xai",
+      "modelName": "grok-2"
+    },
+    {
+      "id": "Gp",
+      "name": "ChatGPT",
+      "systemPrompt": "出分镜图 · 分镜师。负责将提示词细化为连贯的分镜设计，并校验镜头之间的一致性。",
+      "provider": "openai",
+      "modelName": "gpt-4o"
+    }
+  ]
+}
+

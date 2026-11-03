@@ -1,0 +1,32 @@
+{
+  "id": "comfyui-fix",
+  "name": "ComfyUI 报错会诊室",
+  "description": "针对节点缺失、CUDA 显存溢出、工作流断线等问题进行跨模型日志诊断与一键修复",
+  "defaultMode": "mention",
+  "version": "1.0.0",
+  "defaultTools": ["tool_search", "tool_comfyui_history"],
+  "agents": [
+    {
+      "id": "Ds",
+      "name": "DeepSeek",
+      "systemPrompt": "写代码 · 技术推理。负责深入 Python Traceback 与节点底层报错，给出代码与环境修复建议。",
+      "provider": "deepseek",
+      "modelName": "deepseek-reasoner"
+    },
+    {
+      "id": "Cl",
+      "name": "Claude",
+      "systemPrompt": "节点排错 · 架构专家。负责分析 ComfyUI 流程图逻辑闭环，检查模型与 LoRA 兼容性。",
+      "provider": "anthropic",
+      "modelName": "claude-3-7-sonnet"
+    },
+    {
+      "id": "Gm",
+      "name": "Gemini",
+      "systemPrompt": "查资料 · 知识检索。负责检索 GitHub Issues 与社区最新 Custom Nodes 的已知解决方案。",
+      "provider": "google",
+      "modelName": "gemini-2-0-flash"
+    }
+  ]
+}
+

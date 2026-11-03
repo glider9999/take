@@ -1,0 +1,46 @@
+{
+  "id": "general-clinic",
+  "name": "通用会诊室",
+  "description": "面向所有场景的多模型通用智囊团，支持文案、编程、创意头脑风暴与深度调研",
+  "defaultMode": "mention",
+  "version": "1.0.0",
+  "defaultTools": ["tool_search"],
+  "agents": [
+    {
+      "id": "Cl",
+      "name": "Claude",
+      "systemPrompt": "深度思考 · 严谨分析师。长文档处理、逻辑推演与高精度内容生成。",
+      "provider": "anthropic",
+      "modelName": "claude-3-7-sonnet"
+    },
+    {
+      "id": "Gp",
+      "name": "ChatGPT",
+      "systemPrompt": "全能智囊 · 创意总监。负责跨领域泛化对话、创意构想与多轮沟通。",
+      "provider": "openai",
+      "modelName": "gpt-4o"
+    },
+    {
+      "id": "Ds",
+      "name": "DeepSeek",
+      "systemPrompt": "数学与推理 · 极客导师。专注于硬核技术、算法推导与复杂代码实现。",
+      "provider": "deepseek",
+      "modelName": "deepseek-reasoner"
+    },
+    {
+      "id": "Gm",
+      "name": "Gemini",
+      "systemPrompt": "全球视野 · 知识图谱。多模态理解与超长上下文全局检索。",
+      "provider": "google",
+      "modelName": "gemini-2-0-flash"
+    },
+    {
+      "id": "Km",
+      "name": "Kimi",
+      "systemPrompt": "中文长文 · 资料速读。中文语境洞察、报告精读与文献速览。",
+      "provider": "moonshot",
+      "modelName": "moonshot-v1-32k"
+    }
+  ]
+}
+
