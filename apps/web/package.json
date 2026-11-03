@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@take/engine": "workspace:*"
+    "@take/engine": "workspace:*",
+    "@take/ui": "workspace:*",
+    "@take/adapters": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
