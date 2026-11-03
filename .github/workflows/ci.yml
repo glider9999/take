@@ -35,7 +35,7 @@ jobs:
       - name: Monorepo ESLint & TypeScript Check
         run: |
           pnpm lint || echo "Linting passed with warnings"
-          pnpm build
+          pnpm -r build
 
       - name: NPM License Compliance Check
         run: |
@@ -47,7 +47,7 @@ jobs:
           command: check licenses
         continue-on-error: true
 
-  # 2. 单元测试占位
+  # 2. 单元测试 (Engine & Adapters)
   unit-tests:
     name: Unit Tests (Engine & Adapters)
     runs-on: ubuntu-latest
@@ -68,10 +68,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Tests
-        run: pnpm test
+      - name: Run Engine & Adapters Tests
+        run: |
+          pnpm --filter @take/engine test
+          pnpm --filter @take/adapters test
 
-  # 3. 浏览器轻装版构建冒烟 (Web Build Smoke)
+  # 3. 浏览器轻装版构建冒烟 (拓扑序: engine -> ui -> web)
   smoke-web:
     name: Smoke Build - Browser Web App
     runs-on: ubuntu-latest
@@ -92,8 +94,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Web App
-        run: pnpm --filter @take/web build || pnpm build
+      - name: Topological Build for Web
+        run: |
+          pnpm --filter @take/engine build
+          pnpm --filter @take/ui build
+          pnpm --filter @take/web build
 
   # 4. 桌面完全版编译冒烟 (Tauri Desktop Smoke on macOS, Windows, Linux)
   smoke-desktop:
@@ -112,6 +117,25 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build UI Packages Before Tauri
+        run: |
+          pnpm --filter @take/engine build
+          pnpm --filter @take/ui build
+          pnpm --filter @take/desktop build:ui
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
