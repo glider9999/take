@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TakeModelRegistry",
+  "description": "Schema definition for Take supported AI models and providers",
+  "type": "object",
+  "required": ["version", "models"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "provider", "driverType", "contextWindow", "supportsStreaming"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["anthropic", "openai", "google", "deepseek", "moonshot", "openrouter", "local-cli"]
+          },
+          "driverType": {
+            "type": "string",
+            "enum": ["cloud_api", "local_acp", "local_pty"]
+          },
+          "defaultBaseUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "contextWindow": {
+            "type": "integer",
+            "minimum": 1024
+          },
+          "supportsStreaming": {
+            "type": "boolean"
+          },
+          "requiredHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "enum": ["reasoning", "general", "coding", "fast"]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
+
