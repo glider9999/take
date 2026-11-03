@@ -1,10 +1,10 @@
 /**
- * @take/ui - ChatApp.ts
- * 纯前端 TypeScript 共享核心 UI 组件
- * 单一权威源：供 apps/web 与 apps/desktop 共同引入，彻底杜绝双份代码拷贝
+ * @take/ui - ChatApp.ts (Phase 1 定版收官)
+ * TakeChat 核心交互组件：全面集成真实本地账本 LocalLedger（替换假数字）＋中英双语 i18n
  */
 
-import { ContextEngine, Session, Message, AgentProfile, EngineEvent } from '@take/engine';
+import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger } from '@take/engine';
+import { t, getLocale, setLocale, Locale } from '../i18n/index.js';
 
 export interface ChatAppOptions {
   container: HTMLElement;
@@ -15,6 +15,7 @@ export class ChatApp {
   private container: HTMLElement;
   private isDesktop: boolean;
   private engine: ContextEngine;
+  private ledger: LocalLedger;
   private session: Session;
   private agents: AgentProfile[];
   private isBroadcastMode: boolean = true;
@@ -25,6 +26,8 @@ export class ChatApp {
     this.container = options.container;
     this.isDesktop = options.isDesktop ?? false;
     this.engine = new ContextEngine();
+    // 实例化真实本地财务账本（默认自设警戒线：单会话 $2，每月 $20）
+    this.ledger = new LocalLedger({ sessionLimitUsd: 2.0, monthlyLimitUsd: 20.0 });
 
     this.agents = [
       { id: 'Cl', name: 'Claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet' },
@@ -41,7 +44,7 @@ export class ChatApp {
       history: [],
       activeAgentIds: ['Cl', 'Gk', 'Gp', 'Gm', 'Ds'],
       tokenBudget: 50000,
-      totalTokensUsed: 1200,
+      totalTokensUsed: 0,
       isClosed: false,
     };
 
@@ -51,9 +54,11 @@ export class ChatApp {
   public mount(): void {
     this.render();
     this.bindEvents();
+    this.refreshLedgerDisplay();
   }
 
   private setupEngineListeners(): void {
+    // 监听引擎事件流
     this.engine.onEvent((event: EngineEvent) => {
       switch (event.type) {
         case 'typing':
@@ -72,14 +77,32 @@ export class ChatApp {
           this.syncAllAvatars();
           this.updateSendButtonState();
           break;
-        case 'usage':
-          this.updateLedgerMeter(event.usage.totalTokens);
+        case 'usage': {
+          // 真实账本消费 usage 事件并折算更新
+          const agent = this.agents.find((a) => a.id === event.agentId);
+          this.ledger.recordUsage(event, agent?.modelName || 'gpt-4o');
+          this.refreshLedgerDisplay();
           break;
+        }
       }
+    });
+
+    // 监听警戒线软提醒
+    this.ledger.setWarningCallback((msg, isOver) => {
+      const badge = this.container.querySelector('#ledger-badge') as HTMLElement;
+      if (badge) {
+        badge.style.color = '#C8402A';
+        badge.style.borderColor = '#C8402A';
+        badge.title = msg;
+      }
+      console.warn(`[LocalLedger 警戒线软提醒]: ${msg} (超限=${isOver})`);
     });
   }
 
   private render(): void {
+    const curLocale = getLocale();
+    const otherLocale = curLocale === 'zh-CN' ? 'EN' : '中';
+
     this.container.innerHTML = `
       <div class="win">
         <!-- 窗口顶栏 (Titlebar Chrome) -->
@@ -89,25 +112,26 @@ export class ChatApp {
           <span class="dot" style="background:#7A7368"></span>
           <div class="logo" style="margin-left:6px">
             <div class="mark" style="width:26px;height:26px;border-radius:7px"></div>
-            <div class="brand" style="font-size:16px">TakeChat</div>
+            <div class="brand" style="font-size:16px">${t('brandTitle')}</div>
           </div>
           <div class="apptitle">短片《雨夜》制作会诊</div>
-          <span class="quota" id="ledger-badge">本机账本 · 本月 $3.86 / 警戒线 $20</span>
-          <span class="quota" id="settings-btn" style="cursor:pointer">⚙ 设置</span>
-          <div class="me" style="width:28px;height:28px;font-size:12px">你</div>
+          <span class="quota" id="ledger-badge">本机账本 · 计算中...</span>
+          <button class="quota" id="btn-lang" style="cursor:pointer;border:none">${otherLocale}</button>
+          <span class="quota" id="settings-btn" style="cursor:pointer">${t('settings')}</span>
+          <div class="me" style="width:28px;height:28px;font-size:12px">${t('you')}</div>
           <div class="wctl"><span>─</span><span>▢</span><span>✕</span></div>
         </div>
 
         <div class="body">
           <!-- 左侧旁联联系人与房间列表 -->
           <aside class="side">
-            <h4>房 间</h4>
-            <div class="room on" data-room="prompt-clinic">提示词会诊 <span class="n">进行中</span></div>
-            <div class="room" data-room="general-clinic">通用会诊室</div>
-            <div class="room" data-room="comfyui-fix">ComfyUI 报错会诊</div>
-            <div class="room" style="opacity:0.7">＋ 新建房间</div>
+            <h4>${t('roomsTitle')}</h4>
+            <div class="room on" data-room="prompt-clinic">${t('promptClinic')} <span class="n">${t('inProgress')}</span></div>
+            <div class="room" data-room="general-clinic">${t('generalClinic')}</div>
+            <div class="room" data-room="comfyui-fix">${t('comfyFix')}</div>
+            <div class="room" style="opacity:0.7">${t('addRoom')}</div>
 
-            <h4 style="margin-top:18px">联 系 人</h4>
+            <h4 style="margin-top:18px">${t('contactsTitle')}</h4>
             <div class="agent" data-agent="Cl">
               <div class="av" data-av="Cl">Cl<i></i></div>
               <div><b>Claude</b><span data-status="Cl">写提示词</span></div>
@@ -130,7 +154,7 @@ export class ChatApp {
             </div>
             <div class="agent" style="opacity:0.7">
               <div class="av" style="background:#57524A">＋<i style="display:none"></i></div>
-              <div><b>添加联系人</b><span>API 或本地 CLI</span></div>
+              <div><b>${t('addContact')}</b><span>API 或本地 CLI</span></div>
             </div>
           </aside>
 
@@ -138,15 +162,15 @@ export class ChatApp {
           <section class="main">
             <div class="chathead">
               <b>短片《雨夜》制作会诊</b>
-              <span class="tag" id="mode-tag">会诊模式 · 全员接力</span>
+              <span class="tag" id="mode-tag">${this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention')}</span>
               <span>Claude、Grok Bot、ChatGPT、Gemini 在场</span>
             </div>
 
             <div class="msgs" id="msg-stream">
               <div class="msg me">
-                <div class="av" style="background:#C8402A">你</div>
+                <div class="av" style="background:#C8402A">${t('you')}</div>
                 <div>
-                  <div class="who">你</div>
+                  <div class="who">${t('you')}</div>
                   <div class="bub">帮我做一个雨夜便利店的镜头：女孩撑伞走过，霓虹倒影在水洼里。从提示词到分镜，一条龙。</div>
                 </div>
               </div>
@@ -188,10 +212,10 @@ export class ChatApp {
               </div>
 
               <div class="host" id="host-card">
-                <b>主持人汇总：</b>三步都齐了——提示词（Claude）、可跑的工作流（Grok Bot）、分镜草图（ChatGPT）。分工没有重叠，构图和提示词对得上，可以开拍。
+                <b>${t('hostSummaryTitle')}</b>三步都齐了——提示词（Claude）、可跑的工作流（Grok Bot）、分镜草图（ChatGPT）。分工没有重叠，构图和提示词对得上，可以开拍。
                 <div class="hostbtns">
-                  <button class="btn red" id="btn-approve">就按这个开拍</button>
-                  <button class="btn ghost" id="btn-retry">分镜再改一版</button>
+                  <button class="btn red" id="btn-approve">${t('btnApprove')}</button>
+                  <button class="btn ghost" id="btn-retry">${t('btnRetry')}</button>
                 </div>
               </div>
             </div>
@@ -199,25 +223,25 @@ export class ChatApp {
             <!-- 底部输入栏 -->
             <div class="inputbar">
               <button class="at" id="btn-at" title="点击定向 @ 专家">@</button>
-              <span class="mode" id="btn-mode">会诊模式 · 开</span>
-              <input id="chat-input" placeholder="发一句话，或 @ 一位专家单独问…" />
-              <button class="send" id="btn-send">发送</button>
+              <span class="mode" id="btn-mode">${this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff')}</span>
+              <input id="chat-input" placeholder="${t('inputPlaceholder')}" />
+              <button class="send" id="btn-send">${t('sendBtn')}</button>
             </div>
           </section>
 
-          <!-- 右侧会诊进度与本地账本面板 -->
+          <!-- 右侧会诊进度与真实本地账本面板 -->
           <aside class="panel">
-            <h4>本 次 会 诊 进 度</h4>
-            <div class="step" id="step-cl"><span class="st">✓</span>写提示词 · Claude</div>
-            <div class="step" id="step-gk"><span class="st">✓</span>搭工作流 · Grok Bot</div>
-            <div class="step" id="step-gp"><span class="st">✓</span>出分镜图 · ChatGPT</div>
-            <div class="step wait" id="step-me"><span class="st">4</span>汇总拍板 · 等你</div>
+            <h4>${t('progressTitle')}</h4>
+            <div class="step" id="step-cl"><span class="st">✓</span>${t('stepPrompt')}</div>
+            <div class="step" id="step-gk"><span class="st">✓</span>${t('stepWorkflow')}</div>
+            <div class="step" id="step-gp"><span class="st">✓</span>${t('stepStoryboard')}</div>
+            <div class="step wait" id="step-me"><span class="st">4</span>${t('stepSummary')}</div>
 
             <div class="meter">
-              <h4>本 地 用 量 账 本</h4>
-              <p id="ledger-text">本次 $0.12 / 警戒线 $2</p>
-              <div class="bar"><i id="ledger-bar" style="width:17%"></i></div>
-              <small>每个专家只答一次；账本只存本机，逼近警戒线只提醒、不锁死。</small>
+              <h4>${t('ledgerTitle')}</h4>
+              <p id="ledger-text">本次 $0.00 / 警戒线 $2</p>
+              <div class="bar"><i id="ledger-bar" style="width:2%"></i></div>
+              <small>${t('ledgerTip')}</small>
             </div>
           </aside>
         </div>
@@ -230,6 +254,16 @@ export class ChatApp {
     const sendBtn = this.container.querySelector('#btn-send') as HTMLButtonElement;
     const modeBtn = this.container.querySelector('#btn-mode') as HTMLSpanElement;
     const atBtn = this.container.querySelector('#btn-at') as HTMLButtonElement;
+    const langBtn = this.container.querySelector('#btn-lang') as HTMLButtonElement;
+
+    // 语言切换
+    langBtn?.addEventListener('click', () => {
+      const nextLocale: Locale = getLocale() === 'zh-CN' ? 'en-US' : 'zh-CN';
+      setLocale(nextLocale);
+      this.render();
+      this.bindEvents();
+      this.refreshLedgerDisplay();
+    });
 
     const handleSend = () => {
       const text = inputEl.value.trim();
@@ -245,13 +279,13 @@ export class ChatApp {
 
     modeBtn.addEventListener('click', () => {
       this.isBroadcastMode = !this.isBroadcastMode;
-      modeBtn.textContent = this.isBroadcastMode ? '会诊模式 · 开' : '单聊模式 · 关';
+      modeBtn.textContent = this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff');
       modeBtn.style.background = this.isBroadcastMode ? '#FDF0EC' : '#F3EFE6';
       modeBtn.style.color = this.isBroadcastMode ? '#C8402A' : '#57524A';
       modeBtn.style.borderColor = this.isBroadcastMode ? '#C8402A' : '#E3DCCB';
       const tag = this.container.querySelector('#mode-tag') as HTMLElement;
       if (tag) {
-        tag.textContent = this.isBroadcastMode ? '会诊模式 · 全员接力' : '单聊模式 · @定向点名';
+        tag.textContent = this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention');
       }
     });
 
@@ -279,9 +313,9 @@ export class ChatApp {
     const userMsgEl = document.createElement('div');
     userMsgEl.className = 'msg me';
     userMsgEl.innerHTML = `
-      <div class="av" style="background:#C8402A">你</div>
+      <div class="av" style="background:#C8402A">${t('you')}</div>
       <div>
-        <div class="who">你</div>
+        <div class="who">${t('you')}</div>
         <div class="bub">${prompt}</div>
       </div>
     `;
@@ -294,7 +328,7 @@ export class ChatApp {
       turnIndex: (this.session.history[this.session.history.length - 1]?.turnIndex ?? 0) + 1,
       senderType: 'user',
       senderId: 'user-01',
-      senderName: '你',
+      senderName: t('you'),
       content: prompt,
       createdAt: Date.now(),
     };
@@ -330,12 +364,12 @@ export class ChatApp {
         completedTurnInsights
       );
 
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 450));
       const simulatedText = `针对「${prompt.slice(0, 15)}...」，已基于前序讨论完成处理方案输出。`;
       for (let i = 0; i < simulatedText.length; i += 3) {
         const chunk = simulatedText.slice(i, i + 3);
         this.engine.notifyChunk(this.session.id, turnIndex, agentId, chunk);
-        await new Promise((r) => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 40));
       }
 
       completedTurnInsights.set(agentId, { agentName: agent.name, content: simulatedText });
@@ -344,12 +378,12 @@ export class ChatApp {
         turnIndex,
         agentId,
         simulatedText,
-        assembledPayload.length * 50,
-        150
+        assembledPayload.length * 40,
+        120
       );
     }
 
-    this.engine.notifyTurnDone(this.session.id, turnIndex, targetAgentIds, 450);
+    this.engine.notifyTurnDone(this.session.id, turnIndex, targetAgentIds, 400);
   }
 
   private setAgentThinking(agentId: string, isThinking: boolean): void {
@@ -406,17 +440,33 @@ export class ChatApp {
     const sendBtn = this.container.querySelector('#btn-send') as HTMLButtonElement;
     if (sendBtn) {
       sendBtn.disabled = this.isGenerating;
-      sendBtn.textContent = this.isGenerating ? '思考中…' : '发送';
+      sendBtn.textContent = this.isGenerating ? t('sendingBtn') : t('sendBtn');
     }
   }
 
-  private updateLedgerMeter(addTokens: number): void {
-    this.session.totalTokensUsed += addTokens;
-    const cost = (this.session.totalTokensUsed * 0.000003).toFixed(2);
+  /**
+   * 刷新界面账本读数（接通 LocalLedger 真实数据）
+   */
+  private refreshLedgerDisplay(): void {
+    const sSummary = this.ledger.getSessionSummary(this.session.id);
+    const mSummary = this.ledger.getMonthlySummary();
+    const limits = this.ledger.getLimits();
+
     const badge = this.container.querySelector('#ledger-badge');
     const text = this.container.querySelector('#ledger-text');
-    if (badge) badge.textContent = `本机账本 · 本月 $${cost} / 警戒线 $20`;
-    if (text) text.textContent = `本次 $${cost} / 警戒线 $2`;
+    const bar = this.container.querySelector('#ledger-bar') as HTMLElement;
+
+    if (badge) {
+      badge.textContent = `本机账本 · 本月 $${mSummary.costUsd.toFixed(2)} / 警戒线 $${limits.monthlyLimitUsd}`;
+    }
+    if (text) {
+      text.textContent = `本次 $${sSummary.costUsd.toFixed(2)} / 警戒线 $${limits.sessionLimitUsd}`;
+    }
+    if (bar) {
+      const percent = Math.min(100, Math.max(2, (sSummary.costUsd / limits.sessionLimitUsd) * 100));
+      bar.style.width = `${percent.toFixed(0)}%`;
+      bar.style.background = sSummary.isOverLimit ? '#C8402A' : '#1C1A17';
+    }
   }
 }
 
