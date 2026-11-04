@@ -11,7 +11,7 @@ English | [简体中文](README.md)
 
 Unlike conventional single-model interfaces or closed proprietary wrappers, **TakeChat** brings multiple AI assistants (Claude, ChatGPT, Gemini, DeepSeek, Moonshot, Grok, etc.) and local coding CLIs together as "independent contacts" in a unified group chat.
 
-- **Multi-Agent Relay & Aligned Cognition**: Supports "Group Consultation (All respond once per turn)" and "@Mention Direct Mode". Earlier agent responses automatically become visible context for subsequent agents in the same turn, enabling structured multi-agent relay.
+- **Multi-Agent Relay & Aligned Cognition**: Supports "All models reply (each responds once per turn)" and "Mention one (direct mode)". Earlier agent responses automatically become visible context for subsequent agents in the same turn, enabling structured multi-agent relay.
 - **Four Official Built-in Clinic Rooms**:
   1. 🎨 **Prompt Clinic**: Multi-model prompt polishing, constraint compression, and vision-to-prompt tuning;
   2. 🛠️ **ComfyUI Repair**: Workflow JSON submission, queue polling, and structured node error diagnosis;
@@ -40,7 +40,11 @@ pnpm install
 pnpm -r build
 ```
 
-### Running Local Development Servers
+> ⚠️ **Key Build Prerequisite for Clean Checkouts**:  
+> When running from a clean repository checkout, you **must run `pnpm -r build` first** (to compile `@take/engine`, `@take/adapters`, and `@take/tools` into `dist/`) before running `pnpm test`.  
+> Downstream workspace packages and tests reference compiled outputs. Running tests on a clean checkout without building first will fail to resolve imports.
+
+### Running Local Development Servers & Tests
 - **Run Browser Web App**:
   ```bash
   pnpm --filter @take/web dev
@@ -50,7 +54,7 @@ pnpm -r build
   ```bash
   pnpm --filter @take/desktop tauri dev
   ```
-- **Run Automated Vitest Test Suites**:
+- **Run Automated Vitest Test Suites (requires prior pnpm -r build)**:
   ```bash
   pnpm test
   ```
