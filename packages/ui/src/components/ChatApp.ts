@@ -1,12 +1,12 @@
 /**
  * @take/ui - ChatApp.ts
- * TakeChat 核心主界面（工单 12 体验与质感全面抛光版）
- * 核心提升：
- * 1. 彻底清除 127.0.0.1 本机裂图地址，分镜种子改为标准占位与正向导向；
- * 2. 首屏默认为干净空态（.empty-hero），提供「载入演示数据」按需载入；
- * 3. 会诊模式选项人话化（全员会诊/点名某人），输入占位明示行为规则；
- * 4. 彻底扫除硬编码与半截英文，全界面中英无缝切换；
- * 5. 账本小卡紧凑摘要，右栏窄屏响应式收起。
+ * TakeChat 核心主界面（工单 13 补丁单：调用侧双语清零、徽章收口、右栏空态与用词统一）
+ * 核心优化：
+ * 1. 界面模板彻底消除硬编码中文，说话人、在场后缀、新徽章等全调 t()；
+ * 2. 徽章收口：同一行同一时刻严格只亮一枚最高优先级徽章；
+ * 3. 账本小卡标题防折行，单行紧凑摘要彻底消除底部裁切；
+ * 4. 模式用词全链路统一为「全员会诊／点名某人」（EN: All models reply / Mention one）；
+ * 5. 首屏空态时右栏同步呈现空态提示，杜绝未载入即展示假进度与假状态。
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger, StoryboardManager, ShotCard } from '@take/engine';
@@ -59,7 +59,7 @@ export class ChatApp {
       this.keyStore = new BrowserKeyStore();
     }
 
-    // 分镜卡种子数据：彻底移除 127.0.0.1 本机坏链，严守「种子无本机 URL」铁律
+    // 分镜卡种子数据：严格无 127.0.0.1 坏链
     this.storyboard = new StoryboardManager([
       {
         shotNumber: 1,
@@ -167,7 +167,7 @@ export class ChatApp {
       roomTitle = t('generalClinic');
     }
 
-    // 1. 左栏云端助手
+    // 1. 左栏云端助手列表
     const cloudAgentsHtml = this.agents
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
@@ -182,15 +182,15 @@ export class ChatApp {
       })
       .join('');
 
-    // 2. 左栏本地工具
+    // 2. 左栏本地工具列表：徽章收口，同一行同一时刻严格只亮最高优先级一枚
     const localToolsHtml = `
       <div class="item" data-tool="claude-code">
         <div class="ava a-cli">Cc</div>Claude Code
-        <span class="badge">${this.isDesktop ? '✓ 本地' : t('needsDesktop')}</span>
+        ${this.isDesktop ? `<span class="dot"></span>` : `<span class="badge">${t('needsDesktop')}</span>`}
       </div>
       <div class="item" data-tool="comfyui">
         <div class="ava a-cui">Cu</div>ComfyUI
-        <span class="badge">${this.isDesktop ? '✓ 本地' : t('needsDesktop')}</span>
+        ${this.isDesktop ? `<span class="dot"></span>` : `<span class="badge">${t('needsDesktop')}</span>`}
       </div>
     `;
 
@@ -258,7 +258,7 @@ export class ChatApp {
       return `
         <div class="shot-card" data-shot="${shot.shotNumber}">
           <div class="head">
-            <span class="t">镜头 #${shot.shotNumber} · ${shot.shotScale}</span>
+            <span class="t">${t('shotCardTitle')} #${shot.shotNumber} · ${shot.shotScale}</span>
             <span class="badge ${badgeClass}">${badgeText}</span>
           </div>
           <div class="desc">${shot.visualContent}</div>
@@ -287,9 +287,9 @@ export class ChatApp {
     } else if (this.currentRoomId === 'storyboard-clinic') {
       mainMessagesHtml = `
         <div class="msg host">
-          <div class="ava a-host lg">主</div>
+          <div class="ava a-host lg">${t('hostLabel')[0]}</div>
           <div>
-            <div class="who"><b>主持人</b> 10:00</div>
+            <div class="who"><b>${t('hostLabel')}</b> 10:00</div>
             <div class="bubble">欢迎进入 <b>分镜与镜头会诊室</b>。本轮流程：ChatGPT 规划分镜结构、Claude 精炼镜头英文提示词、DeepSeek 调整参数，Grok Bot 调度 ComfyUI 生成样片并汇总成表。</div>
           </div>
         </div>
@@ -319,9 +319,9 @@ export class ChatApp {
           </button>
         </div>
         <div class="msg host">
-          <div class="ava a-host lg">主</div>
+          <div class="ava a-host lg">${t('hostLabel')[0]}</div>
           <div>
-            <div class="who"><b>主持人</b> 09:40</div>
+            <div class="who"><b>${t('hostLabel')}</b> 09:40</div>
             <div class="bubble">这里是 <b>ComfyUI 报错会诊室</b>。请提交出问题的工作流，系统将自动为你生成结构化报错会诊单。</div>
           </div>
         </div>
@@ -329,9 +329,9 @@ export class ChatApp {
     } else {
       mainMessagesHtml = `
         <div class="msg host">
-          <div class="ava a-host lg">主</div>
+          <div class="ava a-host lg">${t('hostLabel')[0]}</div>
           <div>
-            <div class="who"><b>主持人</b> 09:41</div>
+            <div class="who"><b>${t('hostLabel')}</b> 09:41</div>
             <div class="bubble">本轮目标：为《雨夜》出一条可直接跑的视频提示词、一套 ComfyUI 工作流和三格分镜。Claude 先给提示词。</div>
           </div>
         </div>
@@ -361,6 +361,62 @@ export class ChatApp {
       `;
     }
 
+    // 副标题人话化展示
+    const subtitleModeText = this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention');
+    const subtitleText = `${subtitleModeText} · Claude, ChatGPT, Gemini, DeepSeek, Grok Bot ${t('presentSuffix')}`;
+
+    // 7. 右栏内容：未载入演示时同步空态联动
+    let rightRailContentHtml = '';
+    if (!this.hasLoadedDemo) {
+      rightRailContentHtml = `
+        <div class="card">
+          <h5>${t('progressTitle')}</h5>
+          <div class="empty-st-hint" style="color:#7A7368;font-size:12.5px;padding:6px 0;line-height:1.6;">
+            ${t('rightRailProgressEmpty')}
+          </div>
+        </div>
+        <div class="card">
+          <h5>${t('membersTitle')}</h5>
+          <div class="empty-st-hint" style="color:#7A7368;font-size:12.5px;padding:6px 0;line-height:1.6;">
+            ${t('rightRailMembersEmpty')}
+          </div>
+        </div>
+      `;
+    } else {
+      rightRailContentHtml = `
+        <div class="card">
+          <h5>${t('progressTitle')}</h5>
+          <div class="step"><span class="ic">✓</span>${t('stepPromptClaude')}</div>
+          <div class="step"><span class="ic">✓</span>${t('stepWorkflowGrok')}</div>
+          <div class="step"><span class="ic">✓</span>${t('stepStoryboardChatgpt')}</div>
+          <div class="step doing"><span class="ic">…</span>${t('stepCodeDeepseek')}</div>
+          <div class="step wait"><span class="ic">5</span>${t('stepHostSummary')}</div>
+        </div>
+        ${
+          this.currentRoomId === 'storyboard-clinic'
+            ? `
+          <div class="card">
+            <h5>${t('storyboardTableTitle')}</h5>
+            <table class="sb-table">
+              <thead>
+                <tr><th>${t('shotCardTitle')}</th><th>${t('shotScaleLabel')}</th><th>${t('membersTitle')}</th></tr>
+              </thead>
+              <tbody id="sb-table-body">
+                ${sbTableRows}
+              </tbody>
+            </table>
+          </div>
+        `
+            : `
+          <div class="card">
+            <h5>${t('membersTitle')}</h5>
+            ${memberRowsHtml}
+          </div>
+        `
+        }
+      `;
+    }
+
     this.container.innerHTML = `
       <div class="app">
         <!-- 顶栏：54px -->
@@ -383,7 +439,7 @@ export class ChatApp {
               ${t('comfyFix')} <span class="err-n">1</span>
             </div>
             <div class="item ${this.currentRoomId === 'storyboard-clinic' ? 'on' : ''}" data-room="storyboard-clinic">
-              ${t('storyboardClinic')} <span class="badge" style="background:#E1F5FE;color:#0277BD;">新</span>
+              ${t('storyboardClinic')} <span class="badge" style="background:#E1F5FE;color:#0277BD;">${t('badgeNew')}</span>
             </div>
 
             <h4>${t('cloudAgentsTitle')}</h4>
@@ -394,7 +450,7 @@ export class ChatApp {
 
             <div class="grow"></div>
 
-            <!-- 左下角账本小卡：紧凑一行摘要 -->
+            <!-- 左下角账本小卡：标题防折行，单行紧凑摘要 -->
             <div class="mini-card">
               <h5>
                 <span>${t('ledgerTitle')}</span>
@@ -412,7 +468,7 @@ export class ChatApp {
           <section class="main">
             <div class="chat-head">
               <div class="t" id="chat-title">${roomTitle}</div>
-              <div class="s" id="chat-subtitle">${t('modeTagBroadcast')} · Claude、Grok Bot、ChatGPT、DeepSeek 在场</div>
+              <div class="s" id="chat-subtitle">${subtitleText}</div>
             </div>
 
             <div class="msgs" id="msg-stream">
@@ -420,47 +476,15 @@ export class ChatApp {
             </div>
 
             <div class="composer">
-              <span class="mode-toggle" id="btn-mode-toggle">${this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff')}</span>
+              <span class="mode-toggle" id="btn-mode-toggle">${this.isBroadcastMode ? t('modeAllReply') : t('modeMentionOne')}</span>
               <input class="box" id="chat-input" placeholder="${t('inputPlaceholder')}" />
               <button class="send" id="btn-send">${t('sendBtn')}</button>
             </div>
           </section>
 
-          <!-- 右栏：272px 进度与状态双卡（窄屏自动收起） -->
+          <!-- 右栏：272px 进度与状态双卡（未载入演示时同步空态） -->
           <aside class="right">
-            <!-- 卡片 1: 本次会诊进度 -->
-            <div class="card">
-              <h5>${t('progressTitle')}</h5>
-              <div class="step"><span class="ic">✓</span>${t('stepPromptClaude')}</div>
-              <div class="step"><span class="ic">✓</span>${t('stepWorkflowGrok')}</div>
-              <div class="step"><span class="ic">✓</span>${t('stepStoryboardChatgpt')}</div>
-              <div class="step doing"><span class="ic">…</span>${t('stepCodeDeepseek')}</div>
-              <div class="step wait"><span class="ic">5</span>${t('stepHostSummary')}</div>
-            </div>
-
-            <!-- 卡片 2: 分镜表汇总（若在分镜会诊室）或成员状态 -->
-            ${
-              this.currentRoomId === 'storyboard-clinic'
-                ? `
-              <div class="card">
-                <h5>${t('storyboardTableTitle')}</h5>
-                <table class="sb-table">
-                  <thead>
-                    <tr><th>镜号</th><th>景别</th><th>状态</th></tr>
-                  </thead>
-                  <tbody id="sb-table-body">
-                    ${sbTableRows}
-                  </tbody>
-                </table>
-              </div>
-            `
-                : `
-              <div class="card">
-                <h5>${t('membersTitle')}</h5>
-                ${memberRowsHtml}
-              </div>
-            `
-            }
+            ${rightRailContentHtml}
           </aside>
         </div>
       </div>
@@ -485,6 +509,7 @@ export class ChatApp {
 
     // 房间切换事件
     this.container.querySelectorAll('.rail .item[data-room]').forEach((roomEl) => {
+
       roomEl.addEventListener('click', () => {
         const roomId = roomEl.getAttribute('data-room');
         if (roomId && roomId !== this.currentRoomId) {
@@ -519,7 +544,6 @@ export class ChatApp {
 
         // 桌面端执行 ComfyUI 出图
         btn.disabled = true;
-
         btn.textContent = '出图中…';
         try {
           const adapter = new ComfyUiAdapter();
@@ -584,9 +608,14 @@ export class ChatApp {
     // 模式切换
     modeBtn?.addEventListener('click', () => {
       this.isBroadcastMode = !this.isBroadcastMode;
-      modeBtn.textContent = this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff');
+      modeBtn.textContent = this.isBroadcastMode ? t('modeAllReply') : t('modeMentionOne');
       modeBtn.style.color = this.isBroadcastMode ? '#C8402A' : '#57524A';
       modeBtn.style.borderColor = this.isBroadcastMode ? '#C8402A' : '#E3DCCB';
+      const chatSub = this.container.querySelector('#chat-subtitle');
+      if (chatSub) {
+        const subtitleModeText = this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention');
+        chatSub.textContent = `${subtitleModeText} · Claude, ChatGPT, Gemini, DeepSeek, Grok Bot ${t('presentSuffix')}`;
+      }
     });
 
     // 发送消息
