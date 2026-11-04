@@ -59,7 +59,8 @@ describe('TakeChat Polish & Polish Test Suite (Ticket 12) [mock验证]', () => {
     const zhDict = DICTIONARIES['zh-CN'];
     expect(zhDict.comfyEndpointDesc).toBe('(用于报错会诊与工作流执行)');
     expect(zhDict.comfyEndpointHint).toContain('服务默认使用本机端口 8188');
-    expect(zhDict.broadcastOn).toContain('各答一次');
+    expect(zhDict.broadcastOn).toBe('全员会诊');
+    expect(zhDict.modeTagBroadcast).toContain('各答一次');
 
     // 检查英文字典：不存在汉字字符
     const enDict = DICTIONARIES['en-US'];
@@ -69,8 +70,8 @@ describe('TakeChat Polish & Polish Test Suite (Ticket 12) [mock验证]', () => {
     }
 
     // 会诊模式人话化表达断言
-    expect(enDict.broadcastOn).toContain('All respond');
-    expect(enDict.inputPlaceholder).toContain('all agents will respond once');
+    expect(enDict.broadcastOn).toBe('All models reply');
+    expect(enDict.inputPlaceholder).toContain('all models will reply once');
   });
 
   // =========================================================================
