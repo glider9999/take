@@ -1,13 +1,16 @@
 /**
- * @take/ui - ChatApp.ts (支持 local_cli 联系人降级与双端打通)
- * 特性：
- * 1. 联系人列表并列展示云端 API 与本地 CLI 智能体；
- * 2. 浏览器轻装版环境下 CLI 显示「需本地版」不可用标签，点击给出友好阻断提示，不报错崩溃；
- * 3. 桌面完全版环境无缝接通本地 CLI 流式输出，严守单轮一答与轮次纪律。
+ * @take/ui - ChatApp.ts
+ * TakeChat 核心主界面（按 v4 样张 B 三栏重排定版）
+ * 严格对齐母本与样张 B 数值：
+ * 1. 顶栏 54px；
+ * 2. 左栏 212px 索引式：房间（含报错数徽章）＋联系人紧凑行（状态点／思考中／需本地版）＋左下角用量账本小卡；
+ * 3. 右栏 272px 进度与状态双卡：本次会诊进度卡 ＋ 成员状态卡；
+ * 4. 主区聊天头＋消息流＋composer 输入；
+ * 5. 全面复验保留：引擎驱动、流式输出、朱红弧光微摆动效（多处同步）、本地 CLI/ComfyUI 浏览器降级、ComfyUI 报错会诊单结构化建档。
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger } from '@take/engine';
-import { BrowserKeyStore, DesktopKeyStore, KeyStore } from '@take/adapters';
+import { BrowserKeyStore, DesktopKeyStore, KeyStore, ComfyUiAdapter, ComfyExecutionResult } from '@take/adapters';
 import { t, getLocale, setLocale, Locale } from '../i18n/index.js';
 import { SettingsModal } from './SettingsModal.js';
 
@@ -17,7 +20,10 @@ export interface ChatAppOptions {
 }
 
 export interface ExtendedAgentProfile extends AgentProfile {
+  shortName: string;
+  avatarClass: string;
   driverType?: 'cloud_api' | 'local_acp' | 'local_pty';
+  status: 'spoke' | 'ready' | 'thinking' | 'no_key';
 }
 
 export class ChatApp {
@@ -32,6 +38,7 @@ export class ChatApp {
   private isGenerating: boolean = false;
   private thinkingAgents: Set<string> = new Set();
   private activeModal: SettingsModal | null = null;
+  private currentRoomId: string = 'prompt-clinic';
 
   constructor(options: ChatAppOptions) {
     this.container = options.container;
@@ -50,14 +57,14 @@ export class ChatApp {
       this.keyStore = new BrowserKeyStore();
     }
 
-    // 联系人列表：包含 5 个云端 API Agent 与 1 个本地 ACP CLI Agent
+    // 联系人定义（严格按照样张 B）
     this.agents = [
-      { id: 'Cl', name: 'Claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api' },
-      { id: 'Gk', name: 'Grok Bot', systemPrompt: '搭工作流 · 工作流专家', provider: 'xai', modelName: 'grok-2', driverType: 'cloud_api' },
-      { id: 'Gp', name: 'ChatGPT', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api' },
-      { id: 'Gm', name: 'Gemini', systemPrompt: '查资料 · 知识检索', provider: 'google', modelName: 'gemini-2-0-flash', driverType: 'cloud_api' },
-      { id: 'Ds', name: 'DeepSeek', systemPrompt: '写代码 · 技术推理', provider: 'deepseek', modelName: 'deepseek-reasoner', driverType: 'cloud_api' },
-      { id: 'Cc', name: 'Claude Code', systemPrompt: '本地编程 · ACP 架构', provider: 'local-cli', modelName: 'claude-code-acp', driverType: 'local_acp' },
+      { id: 'Cl', name: 'Claude', shortName: 'Cl', avatarClass: 'a-claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api', status: 'spoke' },
+      { id: 'Gp', name: 'ChatGPT', shortName: 'Gp', avatarClass: 'a-gpt', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api', status: 'spoke' },
+      { id: 'Ge', name: 'Gemini', shortName: 'Ge', avatarClass: 'a-gem', systemPrompt: '查资料 · 知识检索', provider: 'google', modelName: 'gemini-2-0-flash', driverType: 'cloud_api', status: 'ready' },
+      { id: 'Ds', name: 'DeepSeek', shortName: 'DS', avatarClass: 'a-ds', systemPrompt: '写代码 · 技术推理', provider: 'deepseek', modelName: 'deepseek-reasoner', driverType: 'cloud_api', status: 'thinking' },
+      { id: 'Gr', name: 'Grok Bot', shortName: 'Gr', avatarClass: 'a-grok', systemPrompt: '搭工作流 · 工作流专家', provider: 'xai', modelName: 'grok-2', driverType: 'cloud_api', status: 'ready' },
+      { id: 'Cc', name: 'Claude Code', shortName: 'Cc', avatarClass: 'a-cli', systemPrompt: '本地编程 · ACP 架构', provider: 'local-cli', modelName: 'claude-code-acp', driverType: 'local_acp', status: 'ready' },
     ];
 
     this.session = {
@@ -65,7 +72,7 @@ export class ChatApp {
       roomId: 'prompt-clinic',
       title: '短片《雨夜》制作会诊',
       history: [],
-      activeAgentIds: ['Cl', 'Gk', 'Gp', 'Gm', 'Ds'],
+      activeAgentIds: ['Cl', 'Gp', 'Ge', 'Ds', 'Gr'],
       tokenBudget: 50000,
       totalTokensUsed: 0,
       isClosed: false,
@@ -109,11 +116,10 @@ export class ChatApp {
     });
 
     this.ledger.setWarningCallback((msg) => {
-      const badge = this.container.querySelector('#ledger-badge') as HTMLElement;
-      if (badge) {
-        badge.style.color = '#C8402A';
-        badge.style.borderColor = '#C8402A';
-        badge.title = msg;
+      const card = this.container.querySelector('.mini-card') as HTMLElement;
+      if (card) {
+        card.style.borderColor = '#C8402A';
+        card.title = msg;
       }
     });
   }
@@ -122,145 +128,210 @@ export class ChatApp {
     const curLocale = getLocale();
     const otherLocale = curLocale === 'zh-CN' ? 'EN' : '中';
 
-    // 组装联系人 HTML（支持 local_cli 降级展示）
-    const contactsHtml = this.agents
-      .map((agent) => {
-        const isCli = agent.driverType === 'local_acp' || agent.driverType === 'local_pty';
-        const isUnavailableInBrowser = isCli && !this.isDesktop;
-        const tagBadge = isUnavailableInBrowser
-          ? `<span class="tag" style="background:#E3DCCB;font-size:10px;margin-left:auto;padding:1px 6px;">${t('needsDesktop')}</span>`
-          : '';
+    const isComfyRoom = this.currentRoomId === 'comfyui-fix';
+    const roomTitle = isComfyRoom ? t('comfyFix') : '短片《雨夜》制作会诊';
 
+    // 1. 左栏云端助手
+    const cloudAgentsHtml = this.agents
+      .filter((a) => a.driverType === 'cloud_api')
+      .map((agent) => {
+        const isThinking = this.thinkingAgents.has(agent.id) || agent.id === 'Ds';
         return `
-          <div class="agent" data-agent="${agent.id}" data-is-cli="${isCli ? 'true' : 'false'}" style="${isUnavailableInBrowser ? 'opacity:0.65;' : ''}">
-            <div class="av" data-av="${agent.id}">${agent.id}<i></i></div>
-            <div style="flex:1;min-width:0;">
-              <div style="display:flex;align-items:center;">
-                <b>${agent.name}</b>
-                ${tagBadge}
-              </div>
-              <span data-status="${agent.id}">${agent.systemPrompt.split('·')[0].trim()}</span>
-            </div>
+          <div class="item ${isThinking ? 'thinking' : ''}" data-agent="${agent.id}">
+            <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
+            ${agent.name}
+            ${isThinking ? `<span class="think-tag">${t('statusThinking')}</span>` : `<span class="dot"></span>`}
           </div>
         `;
       })
       .join('');
 
-    this.container.innerHTML = `
-      <div class="win">
-        <div class="chrome">
-          <span class="dot" style="background:#C9BFA8"></span>
-          <span class="dot" style="background:#A39A88"></span>
-          <span class="dot" style="background:#7A7368"></span>
-          <div class="logo" style="margin-left:6px">
-            <div class="mark" style="width:26px;height:26px;border-radius:7px"></div>
-            <div class="brand" style="font-size:16px">${t('brandTitle')}</div>
+    // 2. 左栏本地工具
+    const localToolsHtml = `
+      <div class="item" data-tool="claude-code">
+        <div class="ava a-cli">Cc</div>Claude Code
+        <span class="badge">${this.isDesktop ? '✓ 本地' : t('needsDesktop')}</span>
+      </div>
+      <div class="item" data-tool="comfyui">
+        <div class="ava a-cui">Cu</div>ComfyUI
+        <span class="badge">${this.isDesktop ? '✓ 本地' : t('needsDesktop')}</span>
+      </div>
+    `;
+
+    // 3. 右栏成员状态
+    const memberRowsHtml = this.agents
+      .filter((a) => a.driverType === 'cloud_api')
+      .map((agent) => {
+        const isThinking = this.thinkingAgents.has(agent.id) || agent.id === 'Ds';
+        let stClass = 'st';
+        let stText = t('statusReady');
+
+        if (isThinking) {
+          stClass = 'st hot';
+          stText = t('statusThinking');
+        } else if (agent.id === 'Cl' || agent.id === 'Gp') {
+          stText = t('statusSpoke');
+        }
+
+        return `
+          <div class="mrow" data-member="${agent.id}">
+            <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
+            ${agent.name}
+            <span class="${stClass}">${stText}</span>
           </div>
-          <div class="apptitle">短片《雨夜》制作会诊</div>
-          <span class="quota" id="ledger-badge">本机账本 · 计算中...</span>
-          <button class="quota" id="btn-lang" style="cursor:pointer;border:none">${otherLocale}</button>
-          <span class="quota" id="settings-btn" style="cursor:pointer">${t('settings')}</span>
-          <div class="me" style="width:28px;height:28px;font-size:12px">${t('you')}</div>
-          <div class="wctl"><span>─</span><span>▢</span><span>✕</span></div>
+        `;
+      })
+      .join('');
+
+    // ComfyUI 会诊室诊断入口
+    const comfyBannerHtml = isComfyRoom
+      ? `
+        <div class="comfy-action-bar" style="background:#FFFDF8;border:1px solid #E3DCCB;border-radius:11px;padding:11px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:12.5px;color:#1C1A17;">
+            🎨 <b>ComfyUI 诊断工作台</b>：提交工作流 JSON 进行执行诊断与节点报错排查
+          </div>
+          <button class="send" id="btn-submit-workflow" style="padding:6px 14px;font-size:12px;border-radius:8px;">
+            ${t('comfySubmitWorkflow')}
+            ${!this.isDesktop ? `<span style="font-size:10px;margin-left:4px;opacity:0.9;">(${t('needsDesktop')})</span>` : ''}
+          </button>
+        </div>
+      `
+      : '';
+
+    this.container.innerHTML = `
+      <div class="app">
+        <!-- 顶栏：54px -->
+        <div class="topbar">
+          <div class="logo">Take<span>Chat</span></div>
+          <div class="rt" id="topbar-room-name">${roomTitle}</div>
+          <div class="sp"></div>
+          <button class="tbtn" id="btn-lang" title="切换双语">${otherLocale}</button>
+          <button class="tbtn" id="btn-settings" title="打开设置">⚙</button>
         </div>
 
+        <!-- 主体：三栏并排，高度 600px -->
         <div class="body">
-          <aside class="side">
+          <!-- 左栏：212px 索引式 -->
+          <aside class="rail">
             <h4>${t('roomsTitle')}</h4>
-            <div class="room on" data-room="prompt-clinic">${t('promptClinic')} <span class="n">${t('inProgress')}</span></div>
-            <div class="room" data-room="general-clinic">${t('generalClinic')}</div>
-            <div class="room" data-room="comfyui-fix">${t('comfyFix')}</div>
-            <div class="room" style="opacity:0.7">${t('addRoom')}</div>
+            <div class="item ${this.currentRoomId === 'prompt-clinic' ? 'on' : ''}" data-room="prompt-clinic">${t('promptClinic')}</div>
+            <div class="item ${this.currentRoomId === 'general-clinic' ? 'on' : ''}" data-room="general-clinic">${t('generalClinic')}</div>
+            <div class="item ${this.currentRoomId === 'comfyui-fix' ? 'on' : ''}" data-room="comfyui-fix">
+              ${t('comfyFix')} <span class="err-n">1</span>
+            </div>
 
-            <h4 style="margin-top:18px">${t('contactsTitle')}</h4>
-            ${contactsHtml}
-            <div class="agent" style="opacity:0.7">
-              <div class="av" style="background:#57524A">＋<i style="display:none"></i></div>
-              <div><b>${t('addContact')}</b><span>API 或本地 CLI</span></div>
+            <h4>${t('cloudAgentsTitle')}</h4>
+            ${cloudAgentsHtml}
+
+            <h4>${t('localToolsTitle')}</h4>
+            ${localToolsHtml}
+
+            <div class="grow"></div>
+
+            <!-- 左下角账本小卡 -->
+            <div class="mini-card">
+              <h5>${t('ledgerTitle')}</h5>
+              <div class="r"><span>${t('ledgerSession')}</span><b id="ledger-session-cost">$0.00</b></div>
+              <div class="lbar"><i id="ledger-session-bar" style="width:2%"></i></div>
+              <div class="r"><span>${t('ledgerMonthly')}</span><b id="ledger-monthly-cost">$0.00 / $20</b></div>
+              <div class="lbar"><i id="ledger-monthly-bar" style="width:2%"></i></div>
             </div>
           </aside>
 
+          <!-- 主区：聊天 -->
           <section class="main">
-            <div class="chathead">
-              <b>短片《雨夜》制作会诊</b>
-              <span class="tag" id="mode-tag">${this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention')}</span>
-              <span>Claude、Grok Bot、ChatGPT、Gemini 在场</span>
+            <div class="chat-head">
+              <div class="t" id="chat-title">${roomTitle}</div>
+              <div class="s" id="chat-subtitle">${t('modeTagBroadcast')} · Claude、Grok Bot、ChatGPT、DeepSeek 在场</div>
             </div>
 
             <div class="msgs" id="msg-stream">
-              <div class="msg me">
-                <div class="av" style="background:#C8402A">${t('you')}</div>
-                <div>
-                  <div class="who">${t('you')}</div>
-                  <div class="bub">帮我做一个雨夜便利店的镜头：女孩撑伞走过，霓虹倒影在水洼里。从提示词到分镜，一条龙。</div>
-                </div>
-              </div>
-
-              <div class="msg" data-msg-agent="Cl">
-                <div class="av" data-av="Cl">Cl</div>
-                <div>
-                  <div class="who"><b>Claude</b> · 提示词专家</div>
-                  <div class="bub">
-                    提示词写好了，重点压了三处：雨丝密度、霓虹色温、水洼倒影。
-                    <code>cinematic shot, girl with transparent umbrella walks past a convenience store at night, heavy rain, neon signs reflecting in puddles, teal and magenta, 35mm, slow tracking shot…</code>
+              ${comfyBannerHtml}
+              ${
+                !isComfyRoom
+                  ? `
+                <div class="msg host">
+                  <div class="ava a-host lg">主</div>
+                  <div>
+                    <div class="who"><b>主持人</b> 09:41</div>
+                    <div class="bubble">本轮目标：为《雨夜》出一条可直接跑的视频提示词、一套 ComfyUI 工作流和三格分镜。Claude 先给提示词。</div>
                   </div>
                 </div>
-              </div>
 
-              <div class="msg" data-msg-agent="Gk">
-                <div class="av" data-av="Gk">Gk</div>
-                <div>
-                  <div class="who"><b>Grok Bot</b> · 工作流专家</div>
-                  <div class="bub">
-                    接上了。给你排了能直接跑的流程：首帧图 → 图生视频（运镜选「缓慢横移」）→ 雨效节点 → 调色。参数都按 Claude 的提示词对齐，不用再手调。
+                <div class="msg" data-msg-agent="Cl">
+                  <div class="ava a-claude lg">Cl</div>
+                  <div>
+                    <div class="who"><b>Claude</b> 09:42</div>
+                    <div class="bubble">提示词好了：「深夜便利店，雨幕中的霓虹倒影，女主角撑伞走过镜头，浅景深，胶片颗粒，冷色调」。要点在倒影和颗粒，别堆形容词。</div>
                   </div>
                 </div>
-              </div>
 
-              <div class="msg" data-msg-agent="Gp">
-                <div class="av" data-av="Gp">Gp</div>
-                <div>
-                  <div class="who"><b>ChatGPT</b> · 分镜师</div>
-                  <div class="bub">
-                    分镜图先画了三格，你看构图对不对味，对了我再补全 6 格。
-                    <div class="shots">
-                      <div class="shot s1">镜头 1 · 全景 便利店外景</div>
-                      <div class="shot s2">镜头 2 · 中景 女孩撑伞走过</div>
-                      <div class="shot s3">镜头 3 · 特写 水洼霓虹倒影</div>
+                <div class="msg" data-msg-agent="Gp">
+                  <div class="ava a-gpt lg">Gp</div>
+                  <div>
+                    <div class="who"><b>ChatGPT</b> 09:44</div>
+                    <div class="bubble">
+                      分镜三格：建立镜头、过肩、特写。
+                      <div class="frames">
+                        <div class="frame">① 建立 · 雨夜街道</div>
+                        <div class="frame">② 过肩 · 伞下侧脸</div>
+                        <div class="frame">③ 特写 · 霓虹倒影</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="host" id="host-card">
-                <b>${t('hostSummaryTitle')}</b>三步都齐了——提示词（Claude）、可跑的工作流（Grok Bot）、分镜草图（ChatGPT）。分工没有重叠，构图和提示词对得上，可以开拍。
-                <div class="hostbtns">
-                  <button class="btn red" id="btn-approve">${t('btnApprove')}</button>
-                  <button class="btn ghost" id="btn-retry">${t('btnRetry')}</button>
+                <div class="typing" id="typing-indicator">
+                  <div class="ava a-ds lg">DS</div>
+                  <div>
+                    <div class="who"><b>DeepSeek</b> 正在思考</div>
+                    <div class="bubble">正在把提示词翻成工作流参数……</div>
+                  </div>
                 </div>
-              </div>
+              `
+                  : `
+                <div class="msg host">
+                  <div class="ava a-host lg">主</div>
+                  <div>
+                    <div class="who"><b>主持人</b> 09:40</div>
+                    <div class="bubble">欢迎进入 <b>ComfyUI 报错会诊室</b>。请点击上方按钮提交出问题的工作流 JSON，本室将自动为你排查失败节点并制定修复方案。</div>
+                  </div>
+                </div>
+
+                <div class="msg" data-msg-agent="Gr">
+                  <div class="ava a-grok lg">Gr</div>
+                  <div>
+                    <div class="who"><b>Grok Bot</b> 09:41</div>
+                    <div class="bubble">Grok Bot 挂载就绪。支持探测 <code>http://127.0.0.1:8188</code>，遇到 CUDA OOM、缺少 Checkpoint 或节点连接异常会自动建档。</div>
+                  </div>
+                </div>
+              `
+              }
             </div>
 
-            <div class="inputbar">
-              <button class="at" id="btn-at" title="点击定向 @ 专家">@</button>
-              <span class="mode" id="btn-mode">${this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff')}</span>
-              <input id="chat-input" placeholder="${t('inputPlaceholder')}" />
+            <div class="composer">
+              <span class="mode-toggle" id="btn-mode-toggle">${this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff')}</span>
+              <input class="box" id="chat-input" placeholder="${t('inputPlaceholder')}" />
               <button class="send" id="btn-send">${t('sendBtn')}</button>
             </div>
           </section>
 
-          <aside class="panel">
-            <h4>${t('progressTitle')}</h4>
-            <div class="step" id="step-cl"><span class="st">✓</span>${t('stepPrompt')}</div>
-            <div class="step" id="step-gk"><span class="st">✓</span>${t('stepWorkflow')}</div>
-            <div class="step" id="step-gp"><span class="st">✓</span>${t('stepStoryboard')}</div>
-            <div class="step wait" id="step-me"><span class="st">4</span>${t('stepSummary')}</div>
+          <!-- 右栏：272px 进度与状态双卡 -->
+          <aside class="right">
+            <!-- 卡片 1: 本次会诊进度 -->
+            <div class="card">
+              <h5>${t('progressTitle')}</h5>
+              <div class="step"><span class="ic">✓</span>${t('stepPromptClaude')}</div>
+              <div class="step"><span class="ic">✓</span>${t('stepWorkflowGrok')}</div>
+              <div class="step"><span class="ic">✓</span>${t('stepStoryboardChatgpt')}</div>
+              <div class="step doing"><span class="ic">…</span>${t('stepCodeDeepseek')}</div>
+              <div class="step wait"><span class="ic">5</span>${t('stepHostSummary')}</div>
+            </div>
 
-            <div class="meter">
-              <h4>${t('ledgerTitle')}</h4>
-              <p id="ledger-text">本次 $0.00 / 警戒线 $2</p>
-              <div class="bar"><i id="ledger-bar" style="width:2%"></i></div>
-              <small>${t('ledgerTip')}</small>
+            <!-- 卡片 2: 成员状态 -->
+            <div class="card">
+              <h5>${t('membersTitle')}</h5>
+              ${memberRowsHtml}
             </div>
           </aside>
         </div>
@@ -271,24 +342,59 @@ export class ChatApp {
   private bindEvents(): void {
     const inputEl = this.container.querySelector('#chat-input') as HTMLInputElement;
     const sendBtn = this.container.querySelector('#btn-send') as HTMLButtonElement;
-    const modeBtn = this.container.querySelector('#btn-mode') as HTMLSpanElement;
-    const atBtn = this.container.querySelector('#btn-at') as HTMLButtonElement;
+    const modeBtn = this.container.querySelector('#btn-mode-toggle') as HTMLElement;
     const langBtn = this.container.querySelector('#btn-lang') as HTMLButtonElement;
-    const settingsBtn = this.container.querySelector('#settings-btn') as HTMLElement;
+    const settingsBtn = this.container.querySelector('#btn-settings') as HTMLElement;
 
+    // 房间切换事件
+    this.container.querySelectorAll('.rail .item[data-room]').forEach((roomEl) => {
+      roomEl.addEventListener('click', () => {
+        const roomId = roomEl.getAttribute('data-room');
+        if (roomId && roomId !== this.currentRoomId) {
+          this.currentRoomId = roomId;
+          this.render();
+          this.bindEvents();
+          this.refreshLedgerDisplay();
+        }
+      });
+    });
+
+    // 本地工具点击降级提示
+    this.container.querySelectorAll('.rail .item[data-tool]').forEach((toolEl) => {
+      toolEl.addEventListener('click', () => {
+        if (!this.isDesktop) {
+          alert(t('needsDesktopNotice'));
+        }
+      });
+    });
+
+    // ComfyUI 提交工作流按钮（双端降级）
+    const btnSubmitWorkflow = this.container.querySelector('#btn-submit-workflow');
+    btnSubmitWorkflow?.addEventListener('click', () => {
+      if (!this.isDesktop) {
+        alert(t('needsDesktopNotice'));
+        return;
+      }
+      this.executeComfyWorkflowDiagnosis();
+    });
+
+    // 设置弹窗
     settingsBtn?.addEventListener('click', async () => {
       if (this.activeModal) return;
       this.activeModal = new SettingsModal({
         keyStore: this.keyStore,
+        ledger: this.ledger,
         isDesktop: this.isDesktop,
         onClose: () => {
           this.activeModal = null;
+          this.refreshLedgerDisplay();
         },
       });
       const modalEl = await this.activeModal.render();
       document.body.appendChild(modalEl);
     });
 
+    // 切换语言
     langBtn?.addEventListener('click', () => {
       const nextLocale: Locale = getLocale() === 'zh-CN' ? 'en-US' : 'zh-CN';
       setLocale(nextLocale);
@@ -297,6 +403,15 @@ export class ChatApp {
       this.refreshLedgerDisplay();
     });
 
+    // 模式切换
+    modeBtn?.addEventListener('click', () => {
+      this.isBroadcastMode = !this.isBroadcastMode;
+      modeBtn.textContent = this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff');
+      modeBtn.style.color = this.isBroadcastMode ? '#C8402A' : '#57524A';
+      modeBtn.style.borderColor = this.isBroadcastMode ? '#C8402A' : '#E3DCCB';
+    });
+
+    // 发送消息
     const handleSend = () => {
       const text = inputEl.value.trim();
       if (!text || this.isGenerating) return;
@@ -309,41 +424,125 @@ export class ChatApp {
       if (e.key === 'Enter') handleSend();
     });
 
-    modeBtn.addEventListener('click', () => {
-      this.isBroadcastMode = !this.isBroadcastMode;
-      modeBtn.textContent = this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff');
-      modeBtn.style.background = this.isBroadcastMode ? '#FDF0EC' : '#F3EFE6';
-      modeBtn.style.color = this.isBroadcastMode ? '#C8402A' : '#57524A';
-      modeBtn.style.borderColor = this.isBroadcastMode ? '#C8402A' : '#E3DCCB';
-      const tag = this.container.querySelector('#mode-tag') as HTMLElement;
-      if (tag) {
-        tag.textContent = this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention');
-      }
-    });
-
-    atBtn.addEventListener('click', () => {
-      inputEl.value += '@Claude ';
-      inputEl.focus();
-    });
-
-    // 联系人点击：区分云端与本地 CLI 降级处理
-    this.container.querySelectorAll('.agent[data-agent]').forEach((el) => {
+    // 联系人点击思考态演示
+    this.container.querySelectorAll('.rail .item[data-agent]').forEach((el) => {
       el.addEventListener('click', () => {
         const agentId = el.getAttribute('data-agent');
-        const isCli = el.getAttribute('data-is-cli') === 'true';
-
-        // 浏览器环境点击本地 CLI：弹出友好阻断提示，不崩溃报错
-        if (isCli && !this.isDesktop) {
-          alert(t('needsDesktopNotice'));
-          return;
-        }
-
         if (agentId) {
-          const isNowThinking = !this.thinkingAgents.has(agentId);
-          this.setAgentThinking(agentId, isNowThinking);
+          const isThinking = !this.thinkingAgents.has(agentId);
+          this.setAgentThinking(agentId, isThinking);
         }
       });
     });
+  }
+
+  /**
+   * 桌面端执行 ComfyUI 工作流诊断并在会话流贴回生图或结构化会诊单
+   */
+  private async executeComfyWorkflowDiagnosis(): Promise<void> {
+    const stream = this.container.querySelector('#msg-stream') as HTMLElement;
+    if (!stream) return;
+
+    // 1. 用户侧提交工作流
+    const userMsgEl = document.createElement('div');
+    userMsgEl.className = 'msg me';
+    userMsgEl.innerHTML = `
+      <div class="ava a-user lg">${t('you')}</div>
+      <div>
+        <div class="who"><b>${t('you')}</b></div>
+        <div class="bubble">
+          已提交工作流诊断任务：<code>雨夜霓虹_SDXL_高精修复.json</code>
+          <div style="font-size:11.5px;color:#7A7368;margin-top:3px;">服务端点: ${ComfyUiAdapter.getSavedEndpoint()} · 正在派发队列并轮询执行结果…</div>
+        </div>
+      </div>
+    `;
+    stream.appendChild(userMsgEl);
+    stream.scrollTop = stream.scrollHeight;
+
+    const adapter = new ComfyUiAdapter();
+
+    const mockWorkflow = {
+      '3': { class_type: 'KSampler', inputs: { seed: 42, steps: 30, cfg: 7.5, model: ['4', 0] } },
+      '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sd_xl_base_1.0.safetensors' } },
+    };
+
+    try {
+      const promptId = await adapter.queuePrompt(mockWorkflow);
+      const result: ComfyExecutionResult = await adapter.pollHistory(promptId, 30);
+
+      if (result.success && result.imageUrls.length > 0) {
+        // 成功生图贴回
+        const successEl = document.createElement('div');
+        successEl.className = 'msg';
+        const imagesHtml = result.imageUrls
+          .map((url) => `<img src="${url}" alt="ComfyUI 生成结果" style="max-width:100%;border-radius:8px;margin-top:6px;border:1px solid #E3DCCB;" />`)
+          .join('');
+
+        successEl.innerHTML = `
+          <div class="ava a-grok lg">Gr</div>
+          <div>
+            <div class="who"><b>Grok Bot</b></div>
+            <div class="bubble">
+              ✓ <b>ComfyUI 渲染成功</b>！已取回生成图像结果：
+              <div style="margin-top:6px;">${imagesHtml}</div>
+            </div>
+          </div>
+        `;
+        stream.appendChild(successEl);
+      } else {
+        // 失败：生成结构化会诊单
+        const errSheetEl = document.createElement('div');
+        errSheetEl.className = 'msg';
+
+        const err = result.structuredError;
+        const failedNodeId = err?.nodeId || result.errorNodeId || '4';
+        const nodeType = err?.nodeType || 'KSampler';
+        const exType = err?.exceptionType || 'RuntimeError';
+        const exMsg = err?.exceptionMessage || result.rawError || 'CUDA out of memory. Tried to allocate 2.40 GiB';
+        const inputsText = err?.inputSummary || '{\n  "seed": 42,\n  "steps": 30,\n  "cfg": 7.5\n}';
+
+        errSheetEl.innerHTML = `
+          <div class="ava a-grok lg">Gr</div>
+          <div>
+            <div class="who"><b>Grok Bot</b></div>
+            <div class="bubble" style="background:#FFF8F6;border:1.5px solid #C8402A;">
+              <b style="color:#C8402A;font-size:13.5px;">📋 ${t('comfyClinicSheet')}</b>
+              <div style="margin-top:6px;font-size:12.5px;line-height:1.6;">
+                <div>• <b>工作流</b>：<code>雨夜霓虹_SDXL_高精修复.json</code> (Prompt ID: <code>${result.promptId}</code>)</div>
+                <div>• <b>失败节点</b>：Node <code>[${failedNodeId}]</code> (${nodeType})</div>
+                <div>• <b>异常类型</b>：<span style="color:#C8402A;font-family:monospace;font-weight:bold;">${exType}</span></div>
+                <div>• <b>异常消息原文</b>：
+                  <blockquote style="margin:4px 0;padding:6px 10px;background:#FAF7F0;border-left:3px solid #C8402A;color:#1C1A17;font-family:monospace;font-size:11.5px;">${exMsg}</blockquote>
+                </div>
+                <div>• <b>出错节点入参摘要</b>：
+                  <pre style="margin:4px 0;padding:6px 10px;background:#FAF7F0;border:1px solid #E3DCCB;border-radius:6px;font-size:11px;overflow-x:auto;">${inputsText}</pre>
+                </div>
+              </div>
+              <div style="margin-top:8px;font-size:12px;color:#57524A;border-top:1px dashed #E3DCCB;padding-top:6px;">
+                会诊已自动建档并通知在场专家。<b>DeepSeek</b>、<b>Claude</b> 请接入分析并给出修复方案。
+              </div>
+            </div>
+          </div>
+        `;
+        stream.appendChild(errSheetEl);
+      }
+    } catch (e) {
+      const errEl = document.createElement('div');
+      errEl.className = 'msg';
+      errEl.innerHTML = `
+        <div class="ava a-grok lg">Gr</div>
+        <div>
+          <div class="who"><b>Grok Bot</b></div>
+          <div class="bubble" style="color:#C8402A;">
+            ✗ <b>无法提交 ComfyUI 任务</b>：${e instanceof Error ? e.message : String(e)}
+            <div style="margin-top:4px;font-size:11.5px;color:#7A7368;">请检查设置面板中的 ComfyUI 服务地址或确认本地服务是否已启动。</div>
+          </div>
+        </div>
+      `;
+      stream.appendChild(errEl);
+    }
+
+    stream.scrollTop = stream.scrollHeight;
   }
 
   private async triggerTurn(prompt: string): Promise<void> {
@@ -354,10 +553,10 @@ export class ChatApp {
     const userMsgEl = document.createElement('div');
     userMsgEl.className = 'msg me';
     userMsgEl.innerHTML = `
-      <div class="av" style="background:#C8402A">${t('you')}</div>
+      <div class="ava a-user lg">${t('you')}</div>
       <div>
-        <div class="who">${t('you')}</div>
-        <div class="bub">${prompt}</div>
+        <div class="who"><b>${t('you')}</b></div>
+        <div class="bubble">${prompt}</div>
       </div>
     `;
     stream.appendChild(userMsgEl);
@@ -383,7 +582,6 @@ export class ChatApp {
       const agent = this.agents.find((a) => a.id === agentId);
       if (!agent) continue;
 
-      // 浏览器环境若目标为本地 CLI 则跳过
       if (agent.driverType === 'local_acp' && !this.isDesktop) continue;
 
       this.engine.notifyTyping(this.session.id, turnIndex, agentId, true);
@@ -392,10 +590,10 @@ export class ChatApp {
       agentMsgEl.className = 'msg';
       agentMsgEl.setAttribute('data-msg-agent', agentId);
       agentMsgEl.innerHTML = `
-        <div class="av think" data-av="${agentId}">${agent.id}</div>
+        <div class="ava ${agent.avatarClass} lg think" data-av="${agentId}">${agent.shortName}</div>
         <div>
-          <div class="who"><b>${agent.name}</b> · ${agent.systemPrompt} <span class="thinklbl">思考中<span class="tdots"><i></i><i></i><i></i></span></span></div>
-          <div class="bub" id="bub-${agentId}-${turnIndex}"></div>
+          <div class="who"><b>${agent.name}</b> · ${agent.systemPrompt} <span class="thinklbl">思考中…</span></div>
+          <div class="bubble" id="bub-${agentId}-${turnIndex}"></div>
         </div>
       `;
       stream.appendChild(agentMsgEl);
@@ -437,27 +635,54 @@ export class ChatApp {
       this.thinkingAgents.delete(agentId);
     }
 
-    const sideAv = this.container.querySelector(`.side .av[data-av="${agentId}"]`);
-    const sideStatus = this.container.querySelector(`.side [data-status="${agentId}"]`);
-    if (sideAv) sideAv.classList.toggle('think', isThinking);
-    if (sideStatus) {
-      sideStatus.classList.toggle('thinklbl', isThinking);
+    // 1. 同步左栏紧凑行
+    const railItem = this.container.querySelector(`.rail .item[data-agent="${agentId}"]`);
+    if (railItem) {
+      railItem.classList.toggle('thinking', isThinking);
+      const tag = railItem.querySelector('.think-tag');
+      const dot = railItem.querySelector('.dot');
       if (isThinking) {
-        sideStatus.innerHTML = `生成中 <span class="tdots"><i></i><i></i><i></i></span>`;
+        if (!tag) {
+          if (dot) dot.remove();
+          const newTag = document.createElement('span');
+          newTag.className = 'think-tag';
+          newTag.textContent = t('statusThinking');
+          railItem.appendChild(newTag);
+        }
       } else {
-        const agent = this.agents.find((a) => a.id === agentId);
-        sideStatus.textContent = agent ? agent.systemPrompt.split('·')[0].trim() : '就绪';
+        if (tag) tag.remove();
+        if (!dot) {
+          const newDot = document.createElement('span');
+          newDot.className = 'dot';
+          railItem.appendChild(newDot);
+        }
       }
     }
 
-    this.container.querySelectorAll(`.msgs .av[data-av="${agentId}"]`).forEach((el) => {
+    // 2. 同步右栏成员状态行
+    const memberRow = this.container.querySelector(`.right .mrow[data-member="${agentId}"]`);
+    if (memberRow) {
+      const stEl = memberRow.querySelector('.st');
+      if (stEl) {
+        if (isThinking) {
+          stEl.className = 'st hot';
+          stEl.textContent = t('statusThinking');
+        } else {
+          stEl.className = 'st';
+          stEl.textContent = t('statusSpoke');
+        }
+      }
+    }
+
+    // 3. 同步主消息区头像思考态
+    this.container.querySelectorAll(`.msgs [data-av="${agentId}"]`).forEach((el) => {
       el.classList.toggle('think', isThinking);
     });
   }
 
   private appendAgentChunk(agentId: string, text: string): void {
     const stream = this.container.querySelector('#msg-stream') as HTMLElement;
-    const bub = this.container.querySelector(`[data-msg-agent="${agentId}"]:last-of-type .bub`);
+    const bub = this.container.querySelector(`[data-msg-agent="${agentId}"]:last-of-type .bubble`);
     if (bub) {
       bub.textContent += text;
       stream.scrollTop = stream.scrollHeight;
@@ -469,13 +694,13 @@ export class ChatApp {
     if (msgEl) {
       const thinkLabel = msgEl.querySelector('.thinklbl');
       if (thinkLabel) thinkLabel.remove();
-      const bub = msgEl.querySelector('.bub');
+      const bub = msgEl.querySelector('.bubble');
       if (bub) bub.textContent = finalContent;
     }
   }
 
   private syncAllAvatars(): void {
-    this.container.querySelectorAll('.av').forEach((el) => {
+    this.container.querySelectorAll('.ava').forEach((el) => {
       el.classList.remove('think');
     });
   }
@@ -493,20 +718,24 @@ export class ChatApp {
     const mSummary = this.ledger.getMonthlySummary();
     const limits = this.ledger.getLimits();
 
-    const badge = this.container.querySelector('#ledger-badge');
-    const text = this.container.querySelector('#ledger-text');
-    const bar = this.container.querySelector('#ledger-bar') as HTMLElement;
+    const sCostEl = this.container.querySelector('#ledger-session-cost');
+    const mCostEl = this.container.querySelector('#ledger-monthly-cost');
+    const sBarEl = this.container.querySelector('#ledger-session-bar') as HTMLElement;
+    const mBarEl = this.container.querySelector('#ledger-monthly-bar') as HTMLElement;
 
-    if (badge) {
-      badge.textContent = `本机账本 · 本月 $${mSummary.costUsd.toFixed(2)} / 警戒线 $${limits.monthlyLimitUsd}`;
+    if (sCostEl) {
+      sCostEl.textContent = `$${sSummary.costUsd.toFixed(2)}`;
     }
-    if (text) {
-      text.textContent = `本次 $${sSummary.costUsd.toFixed(2)} / 警戒线 $${limits.sessionLimitUsd}`;
+    if (mCostEl) {
+      mCostEl.textContent = `$${mSummary.costUsd.toFixed(2)} / $${limits.monthlyLimitUsd}`;
     }
-    if (bar) {
+    if (sBarEl) {
       const percent = Math.min(100, Math.max(2, (sSummary.costUsd / limits.sessionLimitUsd) * 100));
-      bar.style.width = `${percent.toFixed(0)}%`;
-      bar.style.background = sSummary.isOverLimit ? '#C8402A' : '#1C1A17';
+      sBarEl.style.width = `${percent}%`;
+    }
+    if (mBarEl) {
+      const percent = Math.min(100, Math.max(2, (mSummary.costUsd / limits.monthlyLimitUsd) * 100));
+      mBarEl.style.width = `${percent}%`;
     }
   }
 }
