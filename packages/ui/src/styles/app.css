@@ -1,9 +1,9 @@
 /**
  * @take/ui - app.css
- * TakeChat v4 样张 B 终极微修样式表（工单 14）
+ * TakeChat v4 样张 B 终极收口样式表（工单 15）
  * 严格对齐母本与样张 B 数值：
- * 1. 顶栏 54px；左栏 212px 索引式（房间与联系人单行省略）；右栏 272px 窄屏自适应收起；
- * 2. 账本小卡标题与摘要行全量注入 white-space:nowrap + text-overflow:ellipsis，彻底杜绝折行与裁切；
+ * 1. 顶栏 54px；左栏 212px 索引式；右栏 272px 窄屏自适应收起；
+ * 2. 账本小卡金额永不截断：b 标签 flex-shrink:0，中英两模式均一行完整展示金额；
  * 3. 气泡间距扩大至 18px、字重层级分明、动效摆角柔化为 ±2deg；
  * 4. 首屏干净空态（.empty-hero）与按需「载入演示」按钮样式；
  * 5. 结构化分镜卡与整表汇总。
@@ -250,20 +250,20 @@ body {
   50% { transform: rotate(2deg); }
 }
 
-/* 左栏底部小卡：标题与摘要行严格 white-space:nowrap + text-overflow:ellipsis，彻底杜绝折行与裁切 */
+/* 左栏底部小卡：金额永不参与截断（b 标签 flex-shrink: 0），完整展示金额，无折行无裁切 */
 .mini-card {
   margin: auto 8px 8px;
   border: 1px solid #E3DCCB;
   border-radius: 9px;
   background: #FFFDF8;
-  padding: 8px 10px;
-  font-size: 11px;
+  padding: 7px 9px;
+  font-size: 10.5px;
   overflow: hidden;
 }
 
 .mini-card h5 {
   font-size: 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #57524A;
   margin-bottom: 4px;
   font-weight: 600;
@@ -284,24 +284,26 @@ body {
 .mini-card .r {
   display: flex;
   justify-content: space-between;
-  gap: 4px;
+  align-items: center;
   font-size: 10.5px;
   color: #57524A;
   padding: 1px 0;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .mini-card .r span {
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
 }
 
 .mini-card .r b {
   color: #1C1A17;
   font-weight: 700;
+  flex-shrink: 0;
+  margin-left: 2px;
 }
 
 .lbar {
