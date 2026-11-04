@@ -1,6 +1,6 @@
 /**
- * @take/ui - i18n/index.ts (工单 10 v4 样张 B 三栏与三页签适配版)
- * 中英双语国际化字典：覆盖全界面文案、三栏重排、三页签设置区、本地工具与会诊进度
+ * @take/ui - i18n/index.ts (工单 11 分镜与镜头会诊室双语扩充版)
+ * 中英双语国际化字典：覆盖全界面文案、三栏重排、三页签设置区、四间预设会诊室与结构化分镜卡
  */
 
 export type Locale = 'zh-CN' | 'en-US';
@@ -16,6 +16,7 @@ export interface TranslationDict {
   promptClinic: string;
   generalClinic: string;
   comfyFix: string;
+  storyboardClinic: string;
   broadcastOn: string;
   broadcastOff: string;
   modeTagBroadcast: string;
@@ -67,6 +68,15 @@ export interface TranslationDict {
   comfyClinicSheet: string;
   sessionLimitLabel: string;
   monthlyLimitLabel: string;
+  storyboardTableTitle: string;
+  shotCardTitle: string;
+  shotScaleLabel: string;
+  shotPromptLabel: string;
+  shotStatusPending: string;
+  shotStatusRendered: string;
+  shotStatusFinalized: string;
+  btnRenderShot: string;
+  btnFinalizeShot: string;
 }
 
 export const DICTIONARIES: Record<Locale, TranslationDict> = {
@@ -81,9 +91,10 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     promptClinic: '提示词会诊',
     generalClinic: '通用会诊室',
     comfyFix: 'ComfyUI 报错会诊',
+    storyboardClinic: '分镜与镜头会诊',
     broadcastOn: '会诊模式 · 开',
     broadcastOff: '单聊模式 · 关',
-    modeTagBroadcast: '提示词会诊 · 主持人协调',
+    modeTagBroadcast: '会诊模式 · 全员接力',
     modeTagMention: '单聊模式 · @定向点名',
     inputPlaceholder: '发消息，或 @ 某位助手接力…',
     sendBtn: '发送',
@@ -132,6 +143,15 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     comfyClinicSheet: 'ComfyUI 节点报错会诊单',
     sessionLimitLabel: '单次会话警戒线 ($)',
     monthlyLimitLabel: '单月用量警戒线 ($)',
+    storyboardTableTitle: '分镜整表汇总',
+    shotCardTitle: '分镜卡',
+    shotScaleLabel: '景别',
+    shotPromptLabel: '镜头提示词',
+    shotStatusPending: '待定',
+    shotStatusRendered: '已出图',
+    shotStatusFinalized: '已定稿',
+    btnRenderShot: 'ComfyUI 出图',
+    btnFinalizeShot: '定稿',
   },
   'en-US': {
     brandTitle: 'TakeChat',
@@ -144,9 +164,10 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     promptClinic: 'Prompt Clinic',
     generalClinic: 'General Clinic',
     comfyFix: 'ComfyUI Repair',
+    storyboardClinic: 'Storyboard & Camera Clinic',
     broadcastOn: 'Group Mode: ON',
     broadcastOff: 'Direct Mode: OFF',
-    modeTagBroadcast: 'Prompt Clinic · Host Moderation',
+    modeTagBroadcast: 'Group Mode · Cooperative Relay',
     modeTagMention: 'Direct Mode · @Mention',
     inputPlaceholder: 'Send a message, or @ an agent directly…',
     sendBtn: 'Send',
@@ -195,6 +216,15 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     comfyClinicSheet: 'ComfyUI Node Error Case Sheet',
     sessionLimitLabel: 'Session Alert Limit ($)',
     monthlyLimitLabel: 'Monthly Alert Limit ($)',
+    storyboardTableTitle: 'Storyboard Table Summary',
+    shotCardTitle: 'Shot Card',
+    shotScaleLabel: 'Scale',
+    shotPromptLabel: 'Camera Prompt',
+    shotStatusPending: 'Pending',
+    shotStatusRendered: 'Rendered',
+    shotStatusFinalized: 'Finalized',
+    btnRenderShot: 'Render with ComfyUI',
+    btnFinalizeShot: 'Finalize',
   },
 };
 
