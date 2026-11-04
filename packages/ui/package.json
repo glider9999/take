@@ -14,10 +14,10 @@
     "lint": "eslint src/ --ext .ts"
   },
   "dependencies": {
-    "@take/engine": "workspace:*"
+    "@take/engine": "workspace:*",
+    "@take/adapters": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0"
   }
 }
-
