@@ -1,11 +1,12 @@
 /**
- * @take/ui - ChatApp.ts (工单 11 分镜与镜头会诊室＋双版对齐终版)
- * 特性：
- * 1. 补齐第四间官方预设「分镜与镜头会诊室」；
- * 2. 结构化分镜卡（ShotCard）：镜号、景别、提示词、状态（待定/已出图/已定稿）流式卡片渲染；
- * 3. 分镜表汇总：右栏实时展示全量分镜汇总表格；
- * 4. 出图挂钩与双版对齐：桌面端一键调用 ComfyUI 生成样片并回贴更新，浏览器版标准友好阻断降级；
- * 5. 完整保留 v4 样张 B 三栏排布、朱红弧光微摆动效与本地用量账本。
+ * @take/ui - ChatApp.ts
+ * TakeChat 核心主界面（工单 12 体验与质感全面抛光版）
+ * 核心提升：
+ * 1. 彻底清除 127.0.0.1 本机裂图地址，分镜种子改为标准占位与正向导向；
+ * 2. 首屏默认为干净空态（.empty-hero），提供「载入演示数据」按需载入；
+ * 3. 会诊模式选项人话化（全员会诊/点名某人），输入占位明示行为规则；
+ * 4. 彻底扫除硬编码与半截英文，全界面中英无缝切换；
+ * 5. 账本小卡紧凑摘要，右栏窄屏响应式收起。
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger, StoryboardManager, ShotCard } from '@take/engine';
@@ -39,6 +40,7 @@ export class ChatApp {
   private thinkingAgents: Set<string> = new Set();
   private activeModal: SettingsModal | null = null;
   private currentRoomId: string = 'prompt-clinic';
+  private hasLoadedDemo: boolean = false;
 
   constructor(options: ChatAppOptions) {
     this.container = options.container;
@@ -57,15 +59,14 @@ export class ChatApp {
       this.keyStore = new BrowserKeyStore();
     }
 
-    // 初始化分镜管理器
+    // 分镜卡种子数据：彻底移除 127.0.0.1 本机坏链，严守「种子无本机 URL」铁律
     this.storyboard = new StoryboardManager([
       {
         shotNumber: 1,
         shotScale: '全景',
         visualContent: '深夜便利店外景，女孩撑伞走过水洼，霓虹倒影闪烁',
         prompt: 'cinematic wide shot, convenience store at night, puddles reflecting neon lights, 35mm, slow tracking shot',
-        status: 'rendered',
-        imageUrl: 'http://127.0.0.1:8188/view?filename=shot1_rainy_street.png',
+        status: 'pending',
         updatedBy: 'Grok Bot',
       },
       {
@@ -157,7 +158,7 @@ export class ChatApp {
     const curLocale = getLocale();
     const otherLocale = curLocale === 'zh-CN' ? 'EN' : '中';
 
-    let roomTitle = '短片《雨夜》制作会诊';
+    let roomTitle = t('promptClinic');
     if (this.currentRoomId === 'comfyui-fix') {
       roomTitle = t('comfyFix');
     } else if (this.currentRoomId === 'storyboard-clinic') {
@@ -166,7 +167,7 @@ export class ChatApp {
       roomTitle = t('generalClinic');
     }
 
-    // 1. 左栏云端助手列表
+    // 1. 左栏云端助手
     const cloudAgentsHtml = this.agents
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
@@ -181,7 +182,7 @@ export class ChatApp {
       })
       .join('');
 
-    // 2. 左栏本地工具列表
+    // 2. 左栏本地工具
     const localToolsHtml = `
       <div class="item" data-tool="claude-code">
         <div class="ava a-cli">Cc</div>Claude Code
@@ -218,7 +219,7 @@ export class ChatApp {
       })
       .join('');
 
-    // 4. 分镜表汇总表格（分镜会诊室右栏卡片）
+    // 4. 分镜表汇总表格
     const shots = this.storyboard.getStoryboardSummary();
     const sbTableRows = shots
       .map((s) => {
@@ -238,7 +239,7 @@ export class ChatApp {
       })
       .join('');
 
-    // 5. 分镜卡 HTML 生成器
+    // 5. 分镜卡渲染（无本机裂图）
     const renderShotCardHtml = (shot: ShotCard) => {
       let badgeClass = 'pending';
       let badgeText = t('shotStatusPending');
@@ -252,7 +253,7 @@ export class ChatApp {
 
       const imgHtml = shot.imageUrl
         ? `<div class="img-preview"><img src="${shot.imageUrl}" alt="镜头 #${shot.shotNumber} 样片" /></div>`
-        : '';
+        : `<div class="img-placeholder">📷 [${t('needsDesktop')} · ${t('shotStatusPending')}]</div>`;
 
       return `
         <div class="shot-card" data-shot="${shot.shotNumber}">
@@ -271,9 +272,19 @@ export class ChatApp {
       `;
     };
 
-    // 6. 主消息区内容根据房间切换
+    // 6. 主消息区内容：默认首屏为空态，按需载入演示会诊
     let mainMessagesHtml = '';
-    if (this.currentRoomId === 'storyboard-clinic') {
+    if (!this.hasLoadedDemo) {
+      // 干净空态
+      mainMessagesHtml = `
+        <div class="empty-hero">
+          <div class="icon">💬</div>
+          <h3>${t('emptyTitle')}</h3>
+          <p>${t('emptySubtitle')}</p>
+          <button class="btn-load-demo" id="btn-load-demo">${t('btnLoadDemo')}</button>
+        </div>
+      `;
+    } else if (this.currentRoomId === 'storyboard-clinic') {
       mainMessagesHtml = `
         <div class="msg host">
           <div class="ava a-host lg">主</div>
@@ -383,12 +394,16 @@ export class ChatApp {
 
             <div class="grow"></div>
 
-            <!-- 左下角账本小卡 -->
+            <!-- 左下角账本小卡：紧凑一行摘要 -->
             <div class="mini-card">
-              <h5>${t('ledgerTitle')}</h5>
-              <div class="r"><span>${t('ledgerSession')}</span><b id="ledger-session-cost">$0.00</b></div>
-              <div class="lbar"><i id="ledger-session-bar" style="width:2%"></i></div>
-              <div class="r"><span>${t('ledgerMonthly')}</span><b id="ledger-monthly-cost">$0.00 / $20</b></div>
+              <h5>
+                <span>${t('ledgerTitle')}</span>
+                <span style="font-size:10px;color:#7A7368;">${t('ledgerSummaryLabel')}</span>
+              </h5>
+              <div class="r">
+                <span>${t('ledgerSession')}: <b id="ledger-session-cost">$0.00</b></span>
+                <span>${t('ledgerMonthly')}: <b id="ledger-monthly-cost">$0.00 / $20</b></span>
+              </div>
               <div class="lbar"><i id="ledger-monthly-bar" style="width:2%"></i></div>
             </div>
           </aside>
@@ -397,7 +412,7 @@ export class ChatApp {
           <section class="main">
             <div class="chat-head">
               <div class="t" id="chat-title">${roomTitle}</div>
-              <div class="s" id="chat-subtitle">${t('modeTagBroadcast')} · ChatGPT、Claude、DeepSeek、Grok Bot 在场</div>
+              <div class="s" id="chat-subtitle">${t('modeTagBroadcast')} · Claude、Grok Bot、ChatGPT、DeepSeek 在场</div>
             </div>
 
             <div class="msgs" id="msg-stream">
@@ -411,7 +426,7 @@ export class ChatApp {
             </div>
           </section>
 
-          <!-- 右栏：272px 进度与状态双卡 -->
+          <!-- 右栏：272px 进度与状态双卡（窄屏自动收起） -->
           <aside class="right">
             <!-- 卡片 1: 本次会诊进度 -->
             <div class="card">
@@ -458,6 +473,15 @@ export class ChatApp {
     const modeBtn = this.container.querySelector('#btn-mode-toggle') as HTMLElement;
     const langBtn = this.container.querySelector('#btn-lang') as HTMLButtonElement;
     const settingsBtn = this.container.querySelector('#btn-settings') as HTMLElement;
+    const loadDemoBtn = this.container.querySelector('#btn-load-demo') as HTMLButtonElement;
+
+    // 载入演示数据按钮
+    loadDemoBtn?.addEventListener('click', () => {
+      this.hasLoadedDemo = true;
+      this.render();
+      this.bindEvents();
+      this.refreshLedgerDisplay();
+    });
 
     // 房间切换事件
     this.container.querySelectorAll('.rail .item[data-room]').forEach((roomEl) => {
@@ -472,7 +496,7 @@ export class ChatApp {
       });
     });
 
-    // 本地工具点击降级提示
+    // 本地工具点击降级提示（导向化文案）
     this.container.querySelectorAll('.rail .item[data-tool]').forEach((toolEl) => {
       toolEl.addEventListener('click', () => {
         if (!this.isDesktop) {
@@ -495,6 +519,7 @@ export class ChatApp {
 
         // 桌面端执行 ComfyUI 出图
         btn.disabled = true;
+
         btn.textContent = '出图中…';
         try {
           const adapter = new ComfyUiAdapter();
@@ -511,7 +536,6 @@ export class ChatApp {
             alert(`出图失败: ${result.rawError || '未知错误'}`);
             btn.disabled = false;
             btn.textContent = t('btnRenderShot');
-
           }
         } catch (err) {
           alert(`出图异常: ${err instanceof Error ? err.message : String(err)}`);
@@ -569,6 +593,7 @@ export class ChatApp {
     const handleSend = () => {
       const text = inputEl.value.trim();
       if (!text || this.isGenerating) return;
+      this.hasLoadedDemo = true;
       inputEl.value = '';
       this.triggerTurn(text);
     };
@@ -750,7 +775,6 @@ export class ChatApp {
 
     const sCostEl = this.container.querySelector('#ledger-session-cost');
     const mCostEl = this.container.querySelector('#ledger-monthly-cost');
-    const sBarEl = this.container.querySelector('#ledger-session-bar') as HTMLElement;
     const mBarEl = this.container.querySelector('#ledger-monthly-bar') as HTMLElement;
 
     if (sCostEl) {
@@ -758,10 +782,6 @@ export class ChatApp {
     }
     if (mCostEl) {
       mCostEl.textContent = `$${mSummary.costUsd.toFixed(2)} / $${limits.monthlyLimitUsd}`;
-    }
-    if (sBarEl) {
-      const percent = Math.min(100, Math.max(2, (sSummary.costUsd / limits.sessionLimitUsd) * 100));
-      sBarEl.style.width = `${percent}%`;
     }
     if (mBarEl) {
       const percent = Math.min(100, Math.max(2, (mSummary.costUsd / limits.monthlyLimitUsd) * 100));
