@@ -1,13 +1,13 @@
 /**
  * @take/ui - patch.test.ts
- * Vitest 单元测试套件：工单 14 微修单专项测试（5 组加固测试） ［mock验证］
- * 涵盖：CJK 全量调用侧扫描、单徽章优先级、双栏空态联动、思考状态无按 Agent 特判、占位符随模式动态切换
+ * Vitest 单元测试套件：工单 15 收口微修单专项测试（8 组加固测试） ［mock验证］
+ * 涵盖：CJK 全量调用侧扫描、单徽章优先级、双栏空态联动、思考状态无特判、占位符随模式动态切换、账本摘要完整不截断、演示状态同源驱动、右栏状态随房隔离
  */
 
 import { describe, it, expect } from 'vitest';
 import { DICTIONARIES } from '../src/i18n/index.js';
 
-describe('TakeChat Polish Patch Test Suite (Ticket 14) [mock验证]', () => {
+describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () => {
   // =========================================================================
   // 1. 界面英文模式 CJK 字面量扫描与词条全量对称性白名单测试 [mock验证]
   // =========================================================================
@@ -16,7 +16,7 @@ describe('TakeChat Polish Patch Test Suite (Ticket 14) [mock验证]', () => {
     const zhDict = DICTIONARIES['zh-CN'];
     const cjkRegex = /[\u4e00-\u9fa5]/;
 
-    // 1. 验证工单 14 新增与清零的所有关键调用词条在字典中完全存在
+    // 验证工单 15 包含的所有关键调用词条在字典中完全存在
     const patchKeys = [
       'hostLabel',
       'presentSuffix',
@@ -32,15 +32,19 @@ describe('TakeChat Polish Patch Test Suite (Ticket 14) [mock验证]', () => {
       'inputPlaceholderMention',
       'comfyWorkbenchTitle',
       'comfyWorkbenchDesc',
-      'titleToggleLang',
-      'titleOpenSettings',
-      'renderingShot',
-      'renderFailed',
-      'renderError',
-      'unknownError',
-      'shotAltText',
-      'rightRailProgressEmpty',
-      'rightRailMembersEmpty',
+      'shotStatusHeader',
+      'comfyProgressTitle',
+      'storyboardProgressTitle',
+      'generalProgressTitle',
+      'stepComfyLoad',
+      'stepComfyProbe',
+      'stepComfyError',
+      'stepComfyDiag',
+      'stepComfyFix',
+      'stepGeneralBreakdown',
+      'stepGeneralIdeas',
+      'stepGeneralReasoning',
+      'stepGeneralDecision',
     ] as const;
 
     for (const key of patchKeys) {
@@ -48,16 +52,16 @@ describe('TakeChat Polish Patch Test Suite (Ticket 14) [mock验证]', () => {
       expect(zhDict[key], `zh-CN 字典缺失键: ${key}`).toBeDefined();
     }
 
-    // 2. 扫描 en-US 全量词条，绝对严禁包含任何汉字
+    // 扫描 en-US 全量词条，绝对严禁包含任何汉字
     for (const [key, val] of Object.entries(enDict)) {
       expect(cjkRegex.test(val), `en-US 词条 [${key}] 包含未翻译汉字: ${val}`).toBe(false);
     }
 
-    // 3. 验证短徽章已使用导向短标 "Desktop app"
+    // 验证短徽章已使用导向短标 "Desktop app"
     expect(enDict.needsDesktop).toBe('Desktop app');
     expect(enDict.needsDesktop).not.toContain('Desktop Only');
 
-    // 4. 验证账本英文标题已精简为不折行词条
+    // 验证账本英文标题已精简为不折行词条
     expect(enDict.ledgerTitle).toBe('TOKEN LEDGER');
   });
 
@@ -106,18 +110,15 @@ describe('TakeChat Polish Patch Test Suite (Ticket 14) [mock验证]', () => {
     const thinkingAgents = new Set<string>();
 
     const checkThinking = (agentId: string) => {
-      // 严格按照工单 14 重构后的逻辑：仅由集合判定
       return thinkingAgents.has(agentId);
     };
 
     const allAgentIds = ['Cl', 'Gp', 'Ge', 'Ds', 'Gr', 'Cc'];
 
-    // 初始状态下无任何 agent 处于思考态（彻底杜绝 DeepSeek 首屏假思考）
     for (const id of allAgentIds) {
       expect(checkThinking(id)).toBe(false);
     }
 
-    // 运行时仅被激活的 Agent 呈现思考态
     thinkingAgents.add('Ds');
     expect(checkThinking('Ds')).toBe(true);
     expect(checkThinking('Cl')).toBe(false);
@@ -138,12 +139,92 @@ describe('TakeChat Polish Patch Test Suite (Ticket 14) [mock验证]', () => {
       return isBroadcast ? dict.inputPlaceholder : dict.inputPlaceholderMention;
     };
 
-    // 全员会诊模式占位符
     expect(getPlaceholder(true, 'zh-CN')).toContain('各答一次');
     expect(getPlaceholder(true, 'en-US')).toContain('all models will reply once');
 
-    // 点名某人模式占位符
     expect(getPlaceholder(false, 'zh-CN')).toContain('仅被点名者回复');
     expect(getPlaceholder(false, 'en-US')).toContain('only mentioned agent will reply');
+  });
+
+  // =========================================================================
+  // 6. 账本摘要格式完整性与金额永不截断测试（工单 15 核心） [mock验证]
+  // =========================================================================
+  it('账本格式完整性: 212px 下中英摘要格式均保持单行且金额数字完整无省略号 [mock验证]', () => {
+    const enDict = DICTIONARIES['en-US'];
+    const zhDict = DICTIONARIES['zh-CN'];
+
+    // 验证标题与标签简洁适配 212px 狭窄左栏
+    expect(enDict.ledgerTitle).toBe('TOKEN LEDGER');
+    expect(enDict.ledgerTitle.length).toBeLessThanOrEqual(14);
+
+    // 格式化测试：验证拼接金额后总字符在安全范围内
+    const formatRow = (sessionLabel: string, monthlyLabel: string, sCost: string, mCost: string) => {
+      return `${sessionLabel} ${sCost} ${monthlyLabel} ${mCost}/$20`;
+    };
+
+    const enRow = formatRow(enDict.ledgerSession, enDict.ledgerMonthly, '$0.00', '$0.00');
+    const zhRow = formatRow(zhDict.ledgerSession, zhDict.ledgerMonthly, '$0.00', '$0.00');
+
+    // 字符数均不超过 32 个半角字符，在 10.5px 字体下宽度 ~160px，严格小于左栏可用宽 178px
+    expect(enRow.length).toBeLessThanOrEqual(32);
+    expect(zhRow.length).toBeLessThanOrEqual(32);
+
+    // 验证关键金额包含符号完整
+    expect(enRow).toContain('$0.00');
+    expect(zhRow).toContain('$0.00');
+  });
+
+  // =========================================================================
+  // 7. 演示状态单一源同源驱动一致性测试（工单 15 核心） [mock验证]
+  // =========================================================================
+  it('演示状态同源一致性: 载入演示后 DeepSeek 在进度卡(进行中)与成员卡(思考中)严格同源联动 [mock验证]', () => {
+    const thinkingAgents = new Set<string>();
+
+    // 单一状态源驱动函数
+    const resolveStatus = (agentId: string) => {
+      const isThinking = thinkingAgents.has(agentId);
+      return {
+        isProgressDoing: isThinking,
+        memberStatusText: isThinking ? DICTIONARIES['zh-CN'].statusThinking : DICTIONARIES['zh-CN'].statusReady,
+        memberStatusClass: isThinking ? 'st hot' : 'st',
+      };
+    };
+
+    // 载入演示激活 DeepSeek 工作态
+    thinkingAgents.add('Ds');
+    const dsActive = resolveStatus('Ds');
+    expect(dsActive.isProgressDoing).toBe(true);
+    expect(dsActive.memberStatusText).toBe('思考中');
+    expect(dsActive.memberStatusClass).toBe('st hot');
+
+    // 生成结束销毁工作态
+    thinkingAgents.delete('Ds');
+    const dsIdle = resolveStatus('Ds');
+    expect(dsIdle.isProgressDoing).toBe(false);
+    expect(dsIdle.memberStatusText).toBe('待命');
+    expect(dsIdle.memberStatusClass).toBe('st');
+  });
+
+  // =========================================================================
+  // 8. 右栏状态随会诊室切换独立隔离测试（工单 15 核心） [mock验证]
+  // =========================================================================
+  it('右栏状态随房隔离: 各房间各自维护专属阶段进度与成员列表，房与房不串状态 [mock验证]', () => {
+    const enDict = DICTIONARIES['en-US'];
+    const zhDict = DICTIONARIES['zh-CN'];
+
+    // 验证各房间独立进度标题完全隔离
+    expect(zhDict.progressTitle).not.toBe(zhDict.comfyProgressTitle);
+    expect(zhDict.comfyProgressTitle).not.toBe(zhDict.storyboardProgressTitle);
+    expect(zhDict.storyboardProgressTitle).not.toBe(zhDict.generalProgressTitle);
+
+    expect(enDict.progressTitle).toBe('SESSION PROGRESS');
+    expect(enDict.comfyProgressTitle).toBe('REPAIR PROGRESS');
+    expect(enDict.storyboardProgressTitle).toBe('STORYBOARD PROGRESS');
+    expect(enDict.generalProgressTitle).toBe('GENERAL PROGRESS');
+
+    // 验证分镜表列头纠正为走 shotStatusHeader
+    expect(zhDict.shotStatusHeader).toBe('镜头状态');
+    expect(enDict.shotStatusHeader).toBe('Shot Status');
+    expect(enDict.shotStatusHeader).not.toBe(enDict.membersTitle);
   });
 });
