@@ -1,8 +1,12 @@
 /**
  * @take/ui - app.css
- * TakeChat v4 样张 B 三栏重排定版样式表（含分镜卡与整表汇总组件）
- * 严格对齐母本与样张 B 数值：
- * 顶栏 54px；左栏 212px 索引式；右栏 272px 进度与状态双卡；左下角账本小卡；结构化分镜卡与整表汇总
+ * TakeChat v4 样张 B 质感抛光样式表
+ * 严格遵循工单 12 抛光指令：
+ * 1. 顶栏 54px；左栏 212px 索引式（单行省略不换行）；右栏 272px 窄屏自适应响应；
+ * 2. 账本小卡紧凑摘要，彻底杜绝底部裁切；
+ * 3. 气泡间距扩大、主持人/模型/系统层级分明、动效摆角减小至 2deg；
+ * 4. 首屏默认空态（.empty-hero）与按需「载入演示」按钮样式；
+ * 5. 结构化分镜卡与整表汇总。
  */
 
 * {
@@ -103,11 +107,12 @@ body {
   font-size: 10.5px;
   letter-spacing: 0.14em;
   color: #7A7368;
-  padding: 14px 14px 6px;
+  padding: 12px 14px 5px;
   font-weight: 600;
   text-transform: uppercase;
 }
 
+/* 房间与联系人单行省略号，彻底杜绝换行折行 */
 .item {
   display: flex;
   align-items: center;
@@ -119,6 +124,9 @@ body {
   font-size: 13px;
   color: #1C1A17;
   transition: background 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .item:hover {
@@ -170,7 +178,7 @@ body {
 .a-host   { background: #C8402A; }
 .a-user   { background: #C8402A; }
 
-/* 状态点与标签 */
+/* 状态点与标签（最高优先级一枚） */
 .dot {
   width: 6.5px;
   height: 6.5px;
@@ -217,20 +225,20 @@ body {
   flex: 1;
 }
 
-/* 动效层：微摆转 avrock ＋ 朱红弧光 avspin */
+/* 动效克制：摆转角度降低至 ±2deg */
 .thinking .ava, .ava.think {
-  animation: tilt 1.6s ease-in-out infinite;
+  animation: tilt 1.8s ease-in-out infinite;
 }
 
 .thinking .ava::after, .ava.think::after {
   content: "";
   position: absolute;
-  inset: -3.5px;
+  inset: -3px;
   border-radius: 50%;
   background: conic-gradient(from 0deg, #C8402A 0deg 110deg, transparent 110deg 360deg);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
-  animation: spin 1.1s linear infinite;
+  animation: spin 1.2s linear infinite;
 }
 
 @keyframes spin {
@@ -238,33 +246,37 @@ body {
 }
 
 @keyframes tilt {
-  0%, 100% { transform: rotate(-4deg); }
-  50% { transform: rotate(4deg); }
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
 }
 
-/* 左栏底部小卡：本地用量账本 */
+/* 左栏底部小卡：紧凑一行摘要＋点击展开进度条，消除底部裁切 */
 .mini-card {
-  margin: auto 10px 12px;
+  margin: auto 8px 8px;
   border: 1px solid #E3DCCB;
-  border-radius: 11px;
+  border-radius: 9px;
   background: #FFFDF8;
-  padding: 10px 12px;
+  padding: 8px 10px;
+  font-size: 11.5px;
 }
 
 .mini-card h5 {
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   color: #57524A;
-  margin-bottom: 7px;
+  margin-bottom: 4px;
   font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .mini-card .r {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11.5px;
   color: #57524A;
-  padding: 2px 0;
+  padding: 1px 0;
 }
 
 .mini-card .r b {
@@ -272,11 +284,11 @@ body {
 }
 
 .lbar {
-  height: 5px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
   background: #E3DCCB;
   overflow: hidden;
-  margin: 5px 0;
+  margin: 4px 0 2px;
 }
 
 .lbar i {
@@ -313,18 +325,19 @@ body {
   margin-top: 2px;
 }
 
+/* 消息流气泡间距扩大至 18px，层级分明 */
 .msgs {
   flex: 1;
   overflow-y: auto;
-  padding: 18px 22px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .msg {
   display: flex;
-  gap: 11px;
+  gap: 12px;
   max-width: 680px;
 }
 
@@ -337,22 +350,24 @@ body {
 .msg .who b {
   color: #1C1A17;
   font-size: 12.5px;
+  font-weight: 700;
 }
 
 .bubble {
   background: #FFFDF8;
   border: 1px solid #E3DCCB;
   border-radius: 4px 13px 13px 13px;
-  padding: 10px 13px;
+  padding: 11px 14px;
   font-size: 13.5px;
-  line-height: 1.65;
+  line-height: 1.68;
   color: #1C1A17;
   word-break: break-word;
 }
 
 .msg.host .bubble {
-  border-left: 3px solid #C8402A;
+  border-left: 3.5px solid #C8402A;
   background: #FDF6EC;
+  font-weight: 500;
 }
 
 .msg.me {
@@ -366,13 +381,68 @@ body {
   border-radius: 13px 4px 13px 13px;
 }
 
+/* 首屏干净空态 */
+.empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 40px 20px;
+  color: #57524A;
+}
+
+.empty-hero .icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #FAF7F0;
+  border: 1.5px solid #E3DCCB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 14px;
+}
+
+.empty-hero h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1A17;
+  margin-bottom: 6px;
+}
+
+.empty-hero p {
+  font-size: 13px;
+  max-width: 460px;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+.btn-load-demo {
+  background: #FAF7F0;
+  border: 1.5px solid #C8402A;
+  color: #C8402A;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.btn-load-demo:hover {
+  background: #FDF0EC;
+}
+
 /* 结构化分镜卡 (ShotCard) 样式 */
 .shot-card {
   border: 1px solid #E3DCCB;
   border-radius: 12px;
   background: #FFFDF8;
   padding: 12px 14px;
-  margin-top: 6px;
+  margin-top: 8px;
   box-shadow: 0 2px 8px rgba(28, 26, 23, 0.04);
 }
 
@@ -428,6 +498,17 @@ body {
   font-size: 11px;
   color: #57524A;
   word-break: break-all;
+}
+
+.shot-card .img-placeholder {
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px dashed #E3DCCB;
+  background: #FAF7F0;
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 11.5px;
+  color: #7A7368;
 }
 
 .shot-card .img-preview {
@@ -543,7 +624,7 @@ body {
   border: 1px solid #E3DCCB;
   border-radius: 11px;
   padding: 10px 13px;
-  font-size: 13.5px;
+  font-size: 13px;
   color: #1C1A17;
   background: #FAF7F0;
   outline: none;
@@ -563,6 +644,7 @@ body {
   cursor: pointer;
   color: #57524A;
   user-select: none;
+  white-space: nowrap;
 }
 
 .composer .send {
@@ -582,7 +664,7 @@ body {
   cursor: not-allowed;
 }
 
-/* 右栏：宽度严格 272px，只放「本次进度」与「成员状态」两张卡 */
+/* 右栏：272px，窄屏下响应收起 */
 .right {
   width: 272px;
   flex: none;
@@ -593,6 +675,12 @@ body {
   flex-direction: column;
   gap: 14px;
   overflow-y: auto;
+}
+
+@media (max-width: 980px) {
+  .right {
+    display: none;
+  }
 }
 
 .card {
@@ -663,7 +751,7 @@ body {
   font-weight: 600;
 }
 
-/* 设置弹窗（三页签：厂商与Key / 本地工具 / 账本与警戒线） */
+/* 设置弹窗 */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -731,6 +819,12 @@ body {
   margin-bottom: 9px;
 }
 
+.vrow.compact-vrow {
+  padding: 8px 14px;
+  background: #FFFDF8;
+  border: 1px dashed #E3DCCB;
+}
+
 .vrow .vn {
   width: 110px;
   font-size: 13px;
@@ -773,7 +867,7 @@ body {
   border: 1px solid #E3DCCB;
   background: #FFFDF8;
   border-radius: 8px;
-  padding: 7px 11px;
+  padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
   flex: none;
