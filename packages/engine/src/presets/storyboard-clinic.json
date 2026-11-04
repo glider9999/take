@@ -1,0 +1,38 @@
+{
+  "id": "storyboard-clinic",
+  "name": "分镜与镜头会诊室",
+  "description": "围绕影视分镜与运镜推敲展开：情节点拆镜、景别规划、出图提示词精修与 ComfyUI 样片生成",
+  "defaultMode": "broadcast",
+  "version": "1.0.0",
+  "defaultTools": ["tool_search", "tool_comfyui"],
+  "agents": [
+    {
+      "id": "Gp",
+      "name": "ChatGPT",
+      "systemPrompt": "出分镜 · 分镜师。负责梳理场次情节点，规划各镜头景别（全景/过肩/特写/俯视）、构图重心与运镜动线。",
+      "provider": "openai",
+      "modelName": "gpt-4o"
+    },
+    {
+      "id": "Cl",
+      "name": "Claude",
+      "systemPrompt": "写镜头提示词 · 提示词专家。负责针对景别、胶片颗粒、色温与光影反差，提炼最具张力的高质量英文出图提示词。",
+      "provider": "anthropic",
+      "modelName": "claude-3-7-sonnet"
+    },
+    {
+      "id": "Ds",
+      "name": "DeepSeek",
+      "systemPrompt": "补参数 · 技术推理专家。负责为镜头匹配最适宜的模型权重、采样器参数、CFG 阈值与负向提示词配置。",
+      "provider": "deepseek",
+      "modelName": "deepseek-reasoner"
+    },
+    {
+      "id": "Gr",
+      "name": "Grok Bot",
+      "systemPrompt": "管线排布 · 工作流专家。负责调度 ComfyUI 生图工作流，把控样片生成与分镜表汇总归档。",
+      "provider": "xai",
+      "modelName": "grok-2"
+    }
+  ]
+}
