@@ -1,16 +1,16 @@
 /**
  * @take/ui - ChatApp.ts
- * TakeChat 核心主界面（工单 15 收口微修终版）
+ * TakeChat 核心主界面（工单 16 演示状态同源收尾终版）
  * 核心优化：
- * 1. 账本小卡金额永不截断，b 标签 flex-shrink:0，中英两模式均一行完整展示金额；
- * 2. 分镜汇总表状态列列头纠正为走 t('shotStatusHeader')（ZH: 镜头状态 / EN: Shot Status）；
- * 3. 演示状态单一源同源驱动：载入演示后 DeepSeek 在进度卡（进行中）与成员卡（思考中）严格保持同源一致；
- * 4. 右栏状态随房间切换独立隔离：四间官方会诊室各自拥有独立的阶段进度与成员卡，房与房不串状态。
+ * 1. 通用会诊室两卡一致：四间会诊室载入演示后，进行中步骤与成员卡状态严格同源；
+ * 2. 右栏状态单一数据源：ROOM_DEMO_DEFINITIONS 数据结构统一驱动每间房的步骤与成员卡渲染；
+ * 3. 分镜房自洽：维持样张 B（进度＋分镜汇总表定版），进度卡内状态自洽；
+ * 4. 账本刷新格式对齐：refreshLedgerDisplay 输出与初始渲染完全一致（无斜杠空格），外层 span 补 flex-shrink:0 加固防裁切。
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger, StoryboardManager, ShotCard } from '@take/engine';
 import { BrowserKeyStore, DesktopKeyStore, KeyStore, ComfyUiAdapter, ComfyExecutionResult } from '@take/adapters';
-import { t, getLocale, setLocale, Locale } from '../i18n/index.js';
+import { t, getLocale, setLocale, Locale, TranslationDict } from '../i18n/index.js';
 import { SettingsModal } from './SettingsModal.js';
 
 export interface ChatAppOptions {
@@ -26,6 +26,85 @@ export interface ExtendedAgentProfile extends AgentProfile {
   roleEn: string;
   status: 'spoke' | 'ready' | 'thinking' | 'no_key';
 }
+
+/**
+ * 房间演示状态规格定义（工单 16 单一数据源）
+ */
+export interface DemoStepDefinition {
+  key: keyof TranslationDict;
+  actorId?: string; // 关联的智能体 ID 或角色标识 ('Cl' | 'Gr' | 'Gp' | 'Ds' | 'User' | 'Host' | 'Adapter' | 'All')
+  defaultState: 'done' | 'doing' | 'wait';
+}
+
+export interface DemoMemberDefinition {
+  agentId: string;
+  defaultStatus: 'spoke' | 'ready';
+}
+
+export interface RoomDemoDefinition {
+  progressTitleKey: keyof TranslationDict;
+  steps: DemoStepDefinition[];
+  members?: DemoMemberDefinition[];
+}
+
+export const ROOM_DEMO_DEFINITIONS: Record<string, RoomDemoDefinition> = {
+  'prompt-clinic': {
+    progressTitleKey: 'progressTitle',
+    steps: [
+      { key: 'stepPromptClaude', actorId: 'Cl', defaultState: 'done' },
+      { key: 'stepWorkflowGrok', actorId: 'Gr', defaultState: 'done' },
+      { key: 'stepStoryboardChatgpt', actorId: 'Gp', defaultState: 'done' },
+      { key: 'stepCodeDeepseek', actorId: 'Ds', defaultState: 'doing' },
+      { key: 'stepHostSummary', actorId: 'Host', defaultState: 'wait' },
+    ],
+    members: [
+      { agentId: 'Cl', defaultStatus: 'spoke' },
+      { agentId: 'Gp', defaultStatus: 'spoke' },
+      { agentId: 'Ds', defaultStatus: 'ready' },
+      { agentId: 'Gr', defaultStatus: 'ready' },
+      { agentId: 'Ge', defaultStatus: 'ready' },
+    ],
+  },
+  'comfyui-fix': {
+    progressTitleKey: 'comfyProgressTitle',
+    steps: [
+      { key: 'stepComfyLoad', actorId: 'User', defaultState: 'done' },
+      { key: 'stepComfyProbe', actorId: 'Adapter', defaultState: 'done' },
+      { key: 'stepComfyError', actorId: 'Gr', defaultState: 'done' },
+      { key: 'stepComfyDiag', actorId: 'Ds', defaultState: 'doing' },
+      { key: 'stepComfyFix', actorId: 'Cl', defaultState: 'wait' },
+    ],
+    members: [
+      { agentId: 'Gr', defaultStatus: 'spoke' },
+      { agentId: 'Ds', defaultStatus: 'ready' },
+      { agentId: 'Cl', defaultStatus: 'ready' },
+    ],
+  },
+  'general-clinic': {
+    progressTitleKey: 'generalProgressTitle',
+    steps: [
+      { key: 'stepGeneralBreakdown', actorId: 'Host', defaultState: 'done' },
+      { key: 'stepGeneralIdeas', actorId: 'All', defaultState: 'done' },
+      { key: 'stepGeneralReasoning', actorId: 'Ds', defaultState: 'doing' },
+      { key: 'stepGeneralDecision', actorId: 'User', defaultState: 'wait' },
+    ],
+    members: [
+      { agentId: 'Cl', defaultStatus: 'spoke' },
+      { agentId: 'Ds', defaultStatus: 'ready' },
+      { agentId: 'Ge', defaultStatus: 'ready' },
+    ],
+  },
+  'storyboard-clinic': {
+    progressTitleKey: 'storyboardProgressTitle',
+    steps: [
+      { key: 'stepStoryboardChatgpt', actorId: 'Gp', defaultState: 'done' },
+      { key: 'stepPromptClaude', actorId: 'Cl', defaultState: 'done' },
+      { key: 'stepWorkflowGrok', actorId: 'Gr', defaultState: 'doing' },
+      { key: 'stepHostSummary', actorId: 'Host', defaultState: 'wait' },
+    ],
+    // 样张 B 定版：分镜房右栏为进度卡＋分镜整表汇总，无成员卡
+  },
+};
 
 export class ChatApp {
   private container: HTMLElement;
@@ -157,6 +236,15 @@ export class ChatApp {
         card.title = msg;
       }
     });
+  }
+
+  private syncDemoThinkingState(): void {
+    this.thinkingAgents.clear();
+    const demoDef = ROOM_DEMO_DEFINITIONS[this.currentRoomId];
+    const doingStep = demoDef?.steps.find((s) => s.defaultState === 'doing');
+    if (doingStep?.actorId && this.agents.some((a) => a.id === doingStep.actorId)) {
+      this.thinkingAgents.add(doingStep.actorId);
+    }
   }
 
   private render(): void {
@@ -370,7 +458,7 @@ export class ChatApp {
     const subtitleModeText = this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention');
     const subtitleText = `${subtitleModeText} · Claude, ChatGPT, Gemini, DeepSeek, Grok Bot ${t('presentSuffix')}`;
 
-    // 6. 右栏内容：根据当前房间各自独立渲染，房与房严格不串状态
+    // 6. 右栏内容：根据当前房间统一以 ROOM_DEMO_DEFINITIONS 单一源驱动渲染
     let rightRailContentHtml = '';
     if (!this.hasLoadedDemo) {
       rightRailContentHtml = `
@@ -388,37 +476,31 @@ export class ChatApp {
         </div>
       `;
     } else {
-      // 演示已载入：根据当前房间各自分配专属进度与同源成员状态
-      if (this.currentRoomId === 'comfyui-fix') {
-        // ComfyUI 报错会诊室右栏
-        const isDsThinking = this.thinkingAgents.has('Ds');
-        rightRailContentHtml = `
-          <div class="card">
-            <h5>${t('comfyProgressTitle')}</h5>
-            <div class="step"><span class="ic">✓</span>${t('stepComfyLoad')}</div>
-            <div class="step"><span class="ic">✓</span>${t('stepComfyProbe')}</div>
-            <div class="step"><span class="ic">✓</span>${t('stepComfyError')}</div>
-            <div class="step ${isDsThinking ? 'doing' : ''}"><span class="ic">${isDsThinking ? '…' : '✓'}</span>${t('stepComfyDiag')}</div>
-            <div class="step wait"><span class="ic">5</span>${t('stepComfyFix')}</div>
-          </div>
-          <div class="card">
-            <h5>${t('membersTitle')}</h5>
-            <div class="mrow"><div class="ava a-grok">Gr</div>Grok Bot<span class="st">${t('statusSpoke')}</span></div>
-            <div class="mrow"><div class="ava a-ds">DS</div>DeepSeek<span class="st ${isDsThinking ? 'hot' : ''}">${isDsThinking ? t('statusThinking') : t('statusReady')}</span></div>
-            <div class="mrow"><div class="ava a-claude">Cl</div>Claude<span class="st">${t('statusReady')}</span></div>
-          </div>
-        `;
-      } else if (this.currentRoomId === 'storyboard-clinic') {
-        // 分镜与镜头会诊室右栏（整表汇总列头纠正为走 shotStatusHeader）
-        const isGrokThinking = this.thinkingAgents.has('Gr');
-        rightRailContentHtml = `
-          <div class="card">
-            <h5>${t('storyboardProgressTitle')}</h5>
-            <div class="step"><span class="ic">✓</span>${t('stepStoryboardChatgpt')}</div>
-            <div class="step"><span class="ic">✓</span>${t('stepPromptClaude')}</div>
-            <div class="step ${isGrokThinking ? 'doing' : ''}"><span class="ic">${isGrokThinking ? '…' : '3'}</span>${t('stepWorkflowGrok')}</div>
-            <div class="step wait"><span class="ic">4</span>${t('stepHostSummary')}</div>
-          </div>
+      // 演示已载入：根据当前房间配置单一源驱动
+      const demoDef = ROOM_DEMO_DEFINITIONS[this.currentRoomId] || ROOM_DEMO_DEFINITIONS['prompt-clinic'];
+
+      // 渲染阶段进度步骤
+      const stepsHtml = demoDef.steps
+        .map((step, idx) => {
+          const isActorThinking = step.actorId ? this.thinkingAgents.has(step.actorId) : false;
+          const isDoing = step.defaultState === 'doing' || isActorThinking;
+          const isDone = step.defaultState === 'done';
+
+          if (isDone) {
+            return `<div class="step"><span class="ic">✓</span>${t(step.key)}</div>`;
+          } else if (isDoing) {
+            return `<div class="step doing"><span class="ic">…</span>${t(step.key)}</div>`;
+          } else {
+            return `<div class="step wait"><span class="ic">${idx + 1}</span>${t(step.key)}</div>`;
+          }
+
+        })
+        .join('');
+
+      let secondCardHtml = '';
+      if (this.currentRoomId === 'storyboard-clinic') {
+        // 分镜房第二张卡为分镜整表汇总（样张 B 定版）
+        secondCardHtml = `
           <div class="card">
             <h5>${t('storyboardTableTitle')}</h5>
             <table class="sb-table">
@@ -431,47 +513,50 @@ export class ChatApp {
             </table>
           </div>
         `;
-      } else if (this.currentRoomId === 'general-clinic') {
-        // 通用会诊室右栏
-        const isDsThinking = this.thinkingAgents.has('Ds');
-        rightRailContentHtml = `
-          <div class="card">
-            <h5>${t('generalProgressTitle')}</h5>
-            <div class="step"><span class="ic">✓</span>${t('stepGeneralBreakdown')}</div>
-            <div class="step"><span class="ic">✓</span>${t('stepGeneralIdeas')}</div>
-            <div class="step ${isDsThinking ? 'doing' : ''}"><span class="ic">${isDsThinking ? '…' : '3'}</span>${t('stepGeneralReasoning')}</div>
-            <div class="step wait"><span class="ic">4</span>${t('stepGeneralDecision')}</div>
-          </div>
-          <div class="card">
-            <h5>${t('membersTitle')}</h5>
-            <div class="mrow"><div class="ava a-claude">Cl</div>Claude<span class="st">${t('statusSpoke')}</span></div>
-            <div class="mrow"><div class="ava a-ds">DS</div>DeepSeek<span class="st ${isDsThinking ? 'hot' : ''}">${isDsThinking ? t('statusThinking') : t('statusReady')}</span></div>
-            <div class="mrow"><div class="ava a-gem">Ge</div>Gemini<span class="st">${t('statusReady')}</span></div>
-          </div>
-        `;
-      } else {
-        // 提示词会诊室右栏（单一源驱动：同一成员在进度卡为进行中，成员卡必为对应思考中状态）
-        const isDsThinking = this.thinkingAgents.has('Ds');
-        rightRailContentHtml = `
-          <div class="card">
-            <h5>${t('progressTitle')}</h5>
-            <div class="step"><span class="ic">✓</span>${t('stepPromptClaude')}</div>
-            <div class="step"><span class="ic">✓</span>${t('stepWorkflowGrok')}</div>
+      } else if (demoDef.members && demoDef.members.length > 0) {
+        // 其余会诊室由 demoDef.members 单一源驱动成员状态渲染，两卡严格同源
+        const membersHtml = demoDef.members
+          .map((m) => {
+            const agent = this.agents.find((a) => a.id === m.agentId);
+            if (!agent) return '';
 
-            <div class="step"><span class="ic">✓</span>${t('stepStoryboardChatgpt')}</div>
-            <div class="step ${isDsThinking ? 'doing' : ''}"><span class="ic">${isDsThinking ? '…' : '4'}</span>${t('stepCodeDeepseek')}</div>
-            <div class="step wait"><span class="ic">5</span>${t('stepHostSummary')}</div>
-          </div>
+            const isThinking = this.thinkingAgents.has(m.agentId);
+            let statusText = t('statusReady');
+            let statusClass = 'st';
+
+            if (isThinking) {
+              statusText = t('statusThinking');
+              statusClass = 'st hot';
+            } else if (m.defaultStatus === 'spoke') {
+              statusText = t('statusSpoke');
+              statusClass = 'st';
+            }
+
+            return `
+              <div class="mrow" data-member="${agent.id}">
+                <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
+                ${agent.name}
+                <span class="${statusClass}">${statusText}</span>
+              </div>
+            `;
+          })
+          .join('');
+
+        secondCardHtml = `
           <div class="card">
             <h5>${t('membersTitle')}</h5>
-            <div class="mrow"><div class="ava a-claude">Cl</div>Claude<span class="st">${t('statusSpoke')}</span></div>
-            <div class="mrow"><div class="ava a-gpt">Gp</div>ChatGPT<span class="st">${t('statusSpoke')}</span></div>
-            <div class="mrow"><div class="ava a-ds">DS</div>DeepSeek<span class="st ${isDsThinking ? 'hot' : ''}">${isDsThinking ? t('statusThinking') : t('statusReady')}</span></div>
-            <div class="mrow"><div class="ava a-grok">Gr</div>Grok Bot<span class="st">${t('statusReady')}</span></div>
-            <div class="mrow"><div class="ava a-gem">Ge</div>Gemini<span class="st">${t('statusReady')}</span></div>
+            ${membersHtml}
           </div>
         `;
       }
+
+      rightRailContentHtml = `
+        <div class="card">
+          <h5>${t(demoDef.progressTitleKey)}</h5>
+          ${stepsHtml}
+        </div>
+        ${secondCardHtml}
+      `;
     }
 
     // 输入框占位符根据模式切换动态联动
@@ -559,16 +644,10 @@ export class ChatApp {
     const settingsBtn = this.container.querySelector('#btn-settings') as HTMLElement;
     const loadDemoBtn = this.container.querySelector('#btn-load-demo') as HTMLButtonElement;
 
-    // 载入演示数据按钮：按单一源同源激活对应房间的工作中状态
+    // 载入演示数据按钮：按单一源同源激活对应房间的工作中状态（四间房自洽对齐）
     loadDemoBtn?.addEventListener('click', () => {
       this.hasLoadedDemo = true;
-      this.thinkingAgents.clear();
-      // 在提示词会诊室中，DeepSeek 处于工作中进行态
-      if (this.currentRoomId === 'prompt-clinic' || this.currentRoomId === 'comfyui-fix') {
-        this.thinkingAgents.add('Ds');
-      } else if (this.currentRoomId === 'storyboard-clinic') {
-        this.thinkingAgents.add('Gr');
-      }
+      this.syncDemoThinkingState();
       this.render();
       this.bindEvents();
       this.refreshLedgerDisplay();
@@ -582,12 +661,7 @@ export class ChatApp {
           this.currentRoomId = roomId;
           // 若已载入演示，切换房间时同步切换该房间同源思考状态
           if (this.hasLoadedDemo) {
-            this.thinkingAgents.clear();
-            if (this.currentRoomId === 'prompt-clinic' || this.currentRoomId === 'comfyui-fix') {
-              this.thinkingAgents.add('Ds');
-            } else if (this.currentRoomId === 'storyboard-clinic') {
-              this.thinkingAgents.add('Gr');
-            }
+            this.syncDemoThinkingState();
           }
           this.render();
           this.bindEvents();
@@ -906,7 +980,7 @@ export class ChatApp {
       sCostEl.textContent = `$${sSummary.costUsd.toFixed(2)}`;
     }
     if (mCostEl) {
-      mCostEl.textContent = `$${mSummary.costUsd.toFixed(2)} / $${limits.monthlyLimitUsd}`;
+      mCostEl.textContent = `$${mSummary.costUsd.toFixed(2)}/$${limits.monthlyLimitUsd}`;
     }
     if (mBarEl) {
       const percent = Math.min(100, Math.max(2, (mSummary.costUsd / limits.monthlyLimitUsd) * 100));
