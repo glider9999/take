@@ -1,6 +1,9 @@
 /**
- * @take/ui - ChatApp.ts (带设置面板与自检触发)
- * TakeChat 核心交互组件：挂载 SettingsModal，点击设置即可逐家测试连接与配置 Key
+ * @take/ui - ChatApp.ts (支持 local_cli 联系人降级与双端打通)
+ * 特性：
+ * 1. 联系人列表并列展示云端 API 与本地 CLI 智能体；
+ * 2. 浏览器轻装版环境下 CLI 显示「需本地版」不可用标签，点击给出友好阻断提示，不报错崩溃；
+ * 3. 桌面完全版环境无缝接通本地 CLI 流式输出，严守单轮一答与轮次纪律。
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger } from '@take/engine';
@@ -13,6 +16,10 @@ export interface ChatAppOptions {
   isDesktop?: boolean;
 }
 
+export interface ExtendedAgentProfile extends AgentProfile {
+  driverType?: 'cloud_api' | 'local_acp' | 'local_pty';
+}
+
 export class ChatApp {
   private container: HTMLElement;
   private isDesktop: boolean;
@@ -20,7 +27,7 @@ export class ChatApp {
   private ledger: LocalLedger;
   private keyStore: KeyStore;
   private session: Session;
-  private agents: AgentProfile[];
+  private agents: ExtendedAgentProfile[];
   private isBroadcastMode: boolean = true;
   private isGenerating: boolean = false;
   private thinkingAgents: Set<string> = new Set();
@@ -32,9 +39,7 @@ export class ChatApp {
     this.engine = new ContextEngine();
     this.ledger = new LocalLedger({ sessionLimitUsd: 2.0, monthlyLimitUsd: 20.0 });
 
-    // 初始化对应环境的 KeyStore
     if (this.isDesktop) {
-      // 桌面环境注入 command invoker 模拟/调用
       this.keyStore = new DesktopKeyStore(async (cmd, args) => {
         if (typeof (window as any).__TAURI_INTERNALS__ !== 'undefined') {
           return (window as any).__TAURI_INTERNALS__.invoke(cmd, args);
@@ -45,12 +50,14 @@ export class ChatApp {
       this.keyStore = new BrowserKeyStore();
     }
 
+    // 联系人列表：包含 5 个云端 API Agent 与 1 个本地 ACP CLI Agent
     this.agents = [
-      { id: 'Cl', name: 'Claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet' },
-      { id: 'Gk', name: 'Grok Bot', systemPrompt: '搭工作流 · 工作流专家', provider: 'xai', modelName: 'grok-2' },
-      { id: 'Gp', name: 'ChatGPT', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o' },
-      { id: 'Gm', name: 'Gemini', systemPrompt: '查资料 · 知识检索', provider: 'google', modelName: 'gemini-2-0-flash' },
-      { id: 'Ds', name: 'DeepSeek', systemPrompt: '写代码 · 技术推理', provider: 'deepseek', modelName: 'deepseek-reasoner' },
+      { id: 'Cl', name: 'Claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api' },
+      { id: 'Gk', name: 'Grok Bot', systemPrompt: '搭工作流 · 工作流专家', provider: 'xai', modelName: 'grok-2', driverType: 'cloud_api' },
+      { id: 'Gp', name: 'ChatGPT', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api' },
+      { id: 'Gm', name: 'Gemini', systemPrompt: '查资料 · 知识检索', provider: 'google', modelName: 'gemini-2-0-flash', driverType: 'cloud_api' },
+      { id: 'Ds', name: 'DeepSeek', systemPrompt: '写代码 · 技术推理', provider: 'deepseek', modelName: 'deepseek-reasoner', driverType: 'cloud_api' },
+      { id: 'Cc', name: 'Claude Code', systemPrompt: '本地编程 · ACP 架构', provider: 'local-cli', modelName: 'claude-code-acp', driverType: 'local_acp' },
     ];
 
     this.session = {
@@ -101,7 +108,7 @@ export class ChatApp {
       }
     });
 
-    this.ledger.setWarningCallback((msg, isOver) => {
+    this.ledger.setWarningCallback((msg) => {
       const badge = this.container.querySelector('#ledger-badge') as HTMLElement;
       if (badge) {
         badge.style.color = '#C8402A';
@@ -114,6 +121,30 @@ export class ChatApp {
   private render(): void {
     const curLocale = getLocale();
     const otherLocale = curLocale === 'zh-CN' ? 'EN' : '中';
+
+    // 组装联系人 HTML（支持 local_cli 降级展示）
+    const contactsHtml = this.agents
+      .map((agent) => {
+        const isCli = agent.driverType === 'local_acp' || agent.driverType === 'local_pty';
+        const isUnavailableInBrowser = isCli && !this.isDesktop;
+        const tagBadge = isUnavailableInBrowser
+          ? `<span class="tag" style="background:#E3DCCB;font-size:10px;margin-left:auto;padding:1px 6px;">${t('needsDesktop')}</span>`
+          : '';
+
+        return `
+          <div class="agent" data-agent="${agent.id}" data-is-cli="${isCli ? 'true' : 'false'}" style="${isUnavailableInBrowser ? 'opacity:0.65;' : ''}">
+            <div class="av" data-av="${agent.id}">${agent.id}<i></i></div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;">
+                <b>${agent.name}</b>
+                ${tagBadge}
+              </div>
+              <span data-status="${agent.id}">${agent.systemPrompt.split('·')[0].trim()}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
 
     this.container.innerHTML = `
       <div class="win">
@@ -142,26 +173,7 @@ export class ChatApp {
             <div class="room" style="opacity:0.7">${t('addRoom')}</div>
 
             <h4 style="margin-top:18px">${t('contactsTitle')}</h4>
-            <div class="agent" data-agent="Cl">
-              <div class="av" data-av="Cl">Cl<i></i></div>
-              <div><b>Claude</b><span data-status="Cl">写提示词</span></div>
-            </div>
-            <div class="agent" data-agent="Gk">
-              <div class="av" data-av="Gk">Gk<i></i></div>
-              <div><b>Grok Bot</b><span data-status="Gk">搭工作流</span></div>
-            </div>
-            <div class="agent" data-agent="Gp">
-              <div class="av" data-av="Gp">Gp<i></i></div>
-              <div><b>ChatGPT</b><span data-status="Gp">出分镜图</span></div>
-            </div>
-            <div class="agent" data-agent="Gm">
-              <div class="av" data-av="Gm">Gm<i></i></div>
-              <div><b>Gemini</b><span data-status="Gm">查资料</span></div>
-            </div>
-            <div class="agent" data-agent="Ds">
-              <div class="av" data-av="Ds">Ds<i></i></div>
-              <div><b>DeepSeek</b><span data-status="Ds">写代码</span></div>
-            </div>
+            ${contactsHtml}
             <div class="agent" style="opacity:0.7">
               <div class="av" style="background:#57524A">＋<i style="display:none"></i></div>
               <div><b>${t('addContact')}</b><span>API 或本地 CLI</span></div>
@@ -264,7 +276,6 @@ export class ChatApp {
     const langBtn = this.container.querySelector('#btn-lang') as HTMLButtonElement;
     const settingsBtn = this.container.querySelector('#settings-btn') as HTMLElement;
 
-    // 点击设置打开模态框
     settingsBtn?.addEventListener('click', async () => {
       if (this.activeModal) return;
       this.activeModal = new SettingsModal({
@@ -315,9 +326,18 @@ export class ChatApp {
       inputEl.focus();
     });
 
+    // 联系人点击：区分云端与本地 CLI 降级处理
     this.container.querySelectorAll('.agent[data-agent]').forEach((el) => {
       el.addEventListener('click', () => {
         const agentId = el.getAttribute('data-agent');
+        const isCli = el.getAttribute('data-is-cli') === 'true';
+
+        // 浏览器环境点击本地 CLI：弹出友好阻断提示，不崩溃报错
+        if (isCli && !this.isDesktop) {
+          alert(t('needsDesktopNotice'));
+          return;
+        }
+
         if (agentId) {
           const isNowThinking = !this.thinkingAgents.has(agentId);
           this.setAgentThinking(agentId, isNowThinking);
@@ -362,6 +382,9 @@ export class ChatApp {
     for (const agentId of targetAgentIds) {
       const agent = this.agents.find((a) => a.id === agentId);
       if (!agent) continue;
+
+      // 浏览器环境若目标为本地 CLI 则跳过
+      if (agent.driverType === 'local_acp' && !this.isDesktop) continue;
 
       this.engine.notifyTyping(this.session.id, turnIndex, agentId, true);
 
