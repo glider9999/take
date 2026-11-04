@@ -1,8 +1,8 @@
 /**
  * @take/ui - app.css
- * TakeChat v4 样张 B 三栏重排定版样式表
+ * TakeChat v4 样张 B 三栏重排定版样式表（含分镜卡与整表汇总组件）
  * 严格对齐母本与样张 B 数值：
- * 顶栏 54px；左栏 212px 索引式；右栏 272px 进度与状态双卡；左下角账本小卡；朱红弧光与微摆动效
+ * 顶栏 54px；左栏 212px 索引式；右栏 272px 进度与状态双卡；左下角账本小卡；结构化分镜卡与整表汇总
  */
 
 * {
@@ -364,6 +364,133 @@ body {
   background: #FDF0EC;
   border-color: #E8B4A8;
   border-radius: 13px 4px 13px 13px;
+}
+
+/* 结构化分镜卡 (ShotCard) 样式 */
+.shot-card {
+  border: 1px solid #E3DCCB;
+  border-radius: 12px;
+  background: #FFFDF8;
+  padding: 12px 14px;
+  margin-top: 6px;
+  box-shadow: 0 2px 8px rgba(28, 26, 23, 0.04);
+}
+
+.shot-card .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.shot-card .t {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1C1A17;
+}
+
+.shot-card .badge {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.shot-card .badge.pending {
+  background: #F5E9C8;
+  color: #8A6D1F;
+}
+
+.shot-card .badge.rendered {
+  background: #E1F5FE;
+  color: #0277BD;
+}
+
+.shot-card .badge.finalized {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.shot-card .desc {
+  font-size: 12.5px;
+  color: #1C1A17;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.shot-card .pbox {
+  background: #FAF7F0;
+  border: 1px solid #E3DCCB;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #57524A;
+  word-break: break-all;
+}
+
+.shot-card .img-preview {
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid #E3DCCB;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.shot-card .img-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shot-card .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.shot-btn {
+  border: 1px solid #E3DCCB;
+  background: #FAF7F0;
+  border-radius: 7px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: #1C1A17;
+  transition: all 0.15s ease;
+}
+
+.shot-btn:hover {
+  background: #F1EBDD;
+}
+
+.shot-btn.primary {
+  background: #C8402A;
+  color: #FFFDF8;
+  border-color: #C8402A;
+}
+
+/* 分镜整表汇总表格 */
+.sb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.sb-table th {
+  text-align: left;
+  padding: 5px 6px;
+  color: #7A7368;
+  border-bottom: 1px solid #E3DCCB;
+  font-weight: 600;
+}
+
+.sb-table td {
+  padding: 6px 6px;
+  border-bottom: 1px solid #EFE9DD;
+  color: #1C1A17;
 }
 
 .frames {
