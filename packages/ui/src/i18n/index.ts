@@ -1,6 +1,6 @@
 /**
- * @take/ui - i18n/index.ts (工单 14 微修单双语终版)
- * 中英双语国际化字典：界面模板所有标签/状态/徽章/占位/提示/标题/alt/alert 全量抽表清零
+ * @take/ui - i18n/index.ts (工单 15 收口微修终版)
+ * 中英双语国际化字典：覆盖全界面、各会诊室独立阶段进度、镜头状态列头、人话化模式
  */
 
 export type Locale = 'zh-CN' | 'en-US';
@@ -28,12 +28,24 @@ export interface TranslationDict {
   sendBtn: string;
   sendingBtn: string;
   progressTitle: string;
+  comfyProgressTitle: string;
+  storyboardProgressTitle: string;
+  generalProgressTitle: string;
   membersTitle: string;
   stepPromptClaude: string;
   stepWorkflowGrok: string;
   stepStoryboardChatgpt: string;
   stepCodeDeepseek: string;
   stepHostSummary: string;
+  stepComfyLoad: string;
+  stepComfyProbe: string;
+  stepComfyError: string;
+  stepComfyDiag: string;
+  stepComfyFix: string;
+  stepGeneralBreakdown: string;
+  stepGeneralIdeas: string;
+  stepGeneralReasoning: string;
+  stepGeneralDecision: string;
   inProgress: string;
   waitYou: string;
   ledgerTitle: string;
@@ -84,6 +96,7 @@ export interface TranslationDict {
   shotCardTitle: string;
   shotScaleLabel: string;
   shotPromptLabel: string;
+  shotStatusHeader: string;
   shotStatusPending: string;
   shotStatusRendered: string;
   shotStatusFinalized: string;
@@ -130,12 +143,24 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     sendBtn: '发送',
     sendingBtn: '思考中…',
     progressTitle: '本次会诊进度',
+    comfyProgressTitle: '报错排查进度',
+    storyboardProgressTitle: '分镜制作进度',
+    generalProgressTitle: '通用会诊进度',
     membersTitle: '成员状态',
     stepPromptClaude: '提示词 · Claude',
     stepWorkflowGrok: '工作流 · Grok Bot',
     stepStoryboardChatgpt: '分镜图 · ChatGPT',
     stepCodeDeepseek: '参数代码 · DeepSeek',
     stepHostSummary: '主持人汇总',
+    stepComfyLoad: '载入工作流 · 用户',
+    stepComfyProbe: '服务状态探针 · 适配器',
+    stepComfyError: '结构化报错 · Grok Bot',
+    stepComfyDiag: '节点参数会诊 · DeepSeek',
+    stepComfyFix: '修复方案下发 · Claude',
+    stepGeneralBreakdown: '需求拆解 · 主持人',
+    stepGeneralIdeas: '方案构想 · 全员模型',
+    stepGeneralReasoning: '深度推演 · DeepSeek',
+    stepGeneralDecision: '方案拍板 · 用户',
     inProgress: '进行中',
     waitYou: '等你',
     ledgerTitle: '本地用量账本',
@@ -186,6 +211,7 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     shotCardTitle: '分镜卡',
     shotScaleLabel: '景别',
     shotPromptLabel: '镜头提示词',
+    shotStatusHeader: '镜头状态',
     shotStatusPending: '待定',
     shotStatusRendered: '已出图',
     shotStatusFinalized: '已定稿',
@@ -230,12 +256,24 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     sendBtn: 'Send',
     sendingBtn: 'Thinking…',
     progressTitle: 'SESSION PROGRESS',
+    comfyProgressTitle: 'REPAIR PROGRESS',
+    storyboardProgressTitle: 'STORYBOARD PROGRESS',
+    generalProgressTitle: 'GENERAL PROGRESS',
     membersTitle: 'MEMBER STATUS',
     stepPromptClaude: 'Prompts · Claude',
     stepWorkflowGrok: 'Workflow · Grok Bot',
     stepStoryboardChatgpt: 'Storyboards · ChatGPT',
     stepCodeDeepseek: 'Parameters & Code · DeepSeek',
     stepHostSummary: 'Host Summary',
+    stepComfyLoad: 'Workflow Loaded · User',
+    stepComfyProbe: 'Service Probed · Adapter',
+    stepComfyError: 'Error Structured · Grok Bot',
+    stepComfyDiag: 'Node Diagnosis · DeepSeek',
+    stepComfyFix: 'Fix Proposal · Claude',
+    stepGeneralBreakdown: 'Task Breakdown · Host',
+    stepGeneralIdeas: 'Solution Ideas · All Models',
+    stepGeneralReasoning: 'Deep Reasoning · DeepSeek',
+    stepGeneralDecision: 'Final Decision · You',
     inProgress: 'In Progress',
     waitYou: 'Waiting',
     ledgerTitle: 'TOKEN LEDGER',
@@ -286,6 +324,7 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     shotCardTitle: 'Shot Card',
     shotScaleLabel: 'Scale',
     shotPromptLabel: 'Camera Prompt',
+    shotStatusHeader: 'Shot Status',
     shotStatusPending: 'Pending',
     shotStatusRendered: 'Rendered',
     shotStatusFinalized: 'Finalized',
