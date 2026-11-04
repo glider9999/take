@@ -1,10 +1,12 @@
 /**
- * @take/ui - ChatApp.ts (Phase 1 定版收官)
- * TakeChat 核心交互组件：全面集成真实本地账本 LocalLedger（替换假数字）＋中英双语 i18n
+ * @take/ui - ChatApp.ts (带设置面板与自检触发)
+ * TakeChat 核心交互组件：挂载 SettingsModal，点击设置即可逐家测试连接与配置 Key
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger } from '@take/engine';
+import { BrowserKeyStore, DesktopKeyStore, KeyStore } from '@take/adapters';
 import { t, getLocale, setLocale, Locale } from '../i18n/index.js';
+import { SettingsModal } from './SettingsModal.js';
 
 export interface ChatAppOptions {
   container: HTMLElement;
@@ -16,18 +18,32 @@ export class ChatApp {
   private isDesktop: boolean;
   private engine: ContextEngine;
   private ledger: LocalLedger;
+  private keyStore: KeyStore;
   private session: Session;
   private agents: AgentProfile[];
   private isBroadcastMode: boolean = true;
   private isGenerating: boolean = false;
   private thinkingAgents: Set<string> = new Set();
+  private activeModal: SettingsModal | null = null;
 
   constructor(options: ChatAppOptions) {
     this.container = options.container;
     this.isDesktop = options.isDesktop ?? false;
     this.engine = new ContextEngine();
-    // 实例化真实本地财务账本（默认自设警戒线：单会话 $2，每月 $20）
     this.ledger = new LocalLedger({ sessionLimitUsd: 2.0, monthlyLimitUsd: 20.0 });
+
+    // 初始化对应环境的 KeyStore
+    if (this.isDesktop) {
+      // 桌面环境注入 command invoker 模拟/调用
+      this.keyStore = new DesktopKeyStore(async (cmd, args) => {
+        if (typeof (window as any).__TAURI_INTERNALS__ !== 'undefined') {
+          return (window as any).__TAURI_INTERNALS__.invoke(cmd, args);
+        }
+        return (window as any).localStorage?.getItem(`vault_${args.provider}`) || '';
+      });
+    } else {
+      this.keyStore = new BrowserKeyStore();
+    }
 
     this.agents = [
       { id: 'Cl', name: 'Claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet' },
@@ -58,7 +74,6 @@ export class ChatApp {
   }
 
   private setupEngineListeners(): void {
-    // 监听引擎事件流
     this.engine.onEvent((event: EngineEvent) => {
       switch (event.type) {
         case 'typing':
@@ -78,7 +93,6 @@ export class ChatApp {
           this.updateSendButtonState();
           break;
         case 'usage': {
-          // 真实账本消费 usage 事件并折算更新
           const agent = this.agents.find((a) => a.id === event.agentId);
           this.ledger.recordUsage(event, agent?.modelName || 'gpt-4o');
           this.refreshLedgerDisplay();
@@ -87,7 +101,6 @@ export class ChatApp {
       }
     });
 
-    // 监听警戒线软提醒
     this.ledger.setWarningCallback((msg, isOver) => {
       const badge = this.container.querySelector('#ledger-badge') as HTMLElement;
       if (badge) {
@@ -95,7 +108,6 @@ export class ChatApp {
         badge.style.borderColor = '#C8402A';
         badge.title = msg;
       }
-      console.warn(`[LocalLedger 警戒线软提醒]: ${msg} (超限=${isOver})`);
     });
   }
 
@@ -105,7 +117,6 @@ export class ChatApp {
 
     this.container.innerHTML = `
       <div class="win">
-        <!-- 窗口顶栏 (Titlebar Chrome) -->
         <div class="chrome">
           <span class="dot" style="background:#C9BFA8"></span>
           <span class="dot" style="background:#A39A88"></span>
@@ -123,7 +134,6 @@ export class ChatApp {
         </div>
 
         <div class="body">
-          <!-- 左侧旁联联系人与房间列表 -->
           <aside class="side">
             <h4>${t('roomsTitle')}</h4>
             <div class="room on" data-room="prompt-clinic">${t('promptClinic')} <span class="n">${t('inProgress')}</span></div>
@@ -158,7 +168,6 @@ export class ChatApp {
             </div>
           </aside>
 
-          <!-- 中间本体对话流 -->
           <section class="main">
             <div class="chathead">
               <b>短片《雨夜》制作会诊</b>
@@ -220,7 +229,6 @@ export class ChatApp {
               </div>
             </div>
 
-            <!-- 底部输入栏 -->
             <div class="inputbar">
               <button class="at" id="btn-at" title="点击定向 @ 专家">@</button>
               <span class="mode" id="btn-mode">${this.isBroadcastMode ? t('broadcastOn') : t('broadcastOff')}</span>
@@ -229,7 +237,6 @@ export class ChatApp {
             </div>
           </section>
 
-          <!-- 右侧会诊进度与真实本地账本面板 -->
           <aside class="panel">
             <h4>${t('progressTitle')}</h4>
             <div class="step" id="step-cl"><span class="st">✓</span>${t('stepPrompt')}</div>
@@ -255,8 +262,22 @@ export class ChatApp {
     const modeBtn = this.container.querySelector('#btn-mode') as HTMLSpanElement;
     const atBtn = this.container.querySelector('#btn-at') as HTMLButtonElement;
     const langBtn = this.container.querySelector('#btn-lang') as HTMLButtonElement;
+    const settingsBtn = this.container.querySelector('#settings-btn') as HTMLElement;
 
-    // 语言切换
+    // 点击设置打开模态框
+    settingsBtn?.addEventListener('click', async () => {
+      if (this.activeModal) return;
+      this.activeModal = new SettingsModal({
+        keyStore: this.keyStore,
+        isDesktop: this.isDesktop,
+        onClose: () => {
+          this.activeModal = null;
+        },
+      });
+      const modalEl = await this.activeModal.render();
+      document.body.appendChild(modalEl);
+    });
+
     langBtn?.addEventListener('click', () => {
       const nextLocale: Locale = getLocale() === 'zh-CN' ? 'en-US' : 'zh-CN';
       setLocale(nextLocale);
@@ -444,9 +465,6 @@ export class ChatApp {
     }
   }
 
-  /**
-   * 刷新界面账本读数（接通 LocalLedger 真实数据）
-   */
   private refreshLedgerDisplay(): void {
     const sSummary = this.ledger.getSessionSummary(this.session.id);
     const mSummary = this.ledger.getMonthlySummary();
@@ -469,4 +487,3 @@ export class ChatApp {
     }
   }
 }
-
