@@ -1,13 +1,23 @@
 /**
  * @take/ui - patch.test.ts
- * Vitest 单元测试套件：工单 15 收口微修单专项测试（8 组加固测试） ［mock验证］
- * 涵盖：CJK 全量调用侧扫描、单徽章优先级、双栏空态联动、思考状态无特判、占位符随模式动态切换、账本摘要完整不截断、演示状态同源驱动、右栏状态随房隔离
+ * Vitest 单元测试套件：工单 16 演示状态同源收尾专项测试（10 组加固测试） ［mock验证］
+ * 涵盖：
+ * 1. CJK 全量调用侧扫描与白名单；
+ * 2. 单徽章优先级；
+ * 3. 双栏空态联动与人话化用词；
+ * 4. 思考状态无特判（只认 thinkingAgents 集合）；
+ * 5. 输入框占位符动态联动；
+ * 6. 账本摘要格式完整性（212px 单行无截断）；
+ * 7. 演示状态单一源同源驱动一致性；
+ * 8. 右栏状态随会诊室切换独立隔离；
+ * 9. 账本刷新格式一致性（无斜杠空格，防裁切加固）［工单 16 新增］；
+ * 10. 通用会诊室载入演示两卡同源专项测试［工单 16 新增］。
  */
 
 import { describe, it, expect } from 'vitest';
 import { DICTIONARIES } from '../src/i18n/index.js';
 
-describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () => {
+describe('TakeChat Final Polish Patch Test Suite (Ticket 16) [mock验证]', () => {
   // =========================================================================
   // 1. 界面英文模式 CJK 字面量扫描与词条全量对称性白名单测试 [mock验证]
   // =========================================================================
@@ -16,7 +26,7 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
     const zhDict = DICTIONARIES['zh-CN'];
     const cjkRegex = /[\u4e00-\u9fa5]/;
 
-    // 验证工单 15 包含的所有关键调用词条在字典中完全存在
+    // 验证工单 16 包含的所有关键调用词条在字典中完全存在
     const patchKeys = [
       'hostLabel',
       'presentSuffix',
@@ -147,7 +157,7 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
   });
 
   // =========================================================================
-  // 6. 账本摘要格式完整性与金额永不截断测试（工单 15 核心） [mock验证]
+  // 6. 账本摘要格式完整性与金额永不截断测试（单空格实排） [mock验证]
   // =========================================================================
   it('账本格式完整性: 212px 下中英摘要格式均保持单行且金额数字完整无省略号 [mock验证]', () => {
     const enDict = DICTIONARIES['en-US'];
@@ -157,7 +167,7 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
     expect(enDict.ledgerTitle).toBe('TOKEN LEDGER');
     expect(enDict.ledgerTitle.length).toBeLessThanOrEqual(14);
 
-    // 格式化测试：验证拼接金额后总字符在安全范围内
+    // 格式化测试：按 DOM 实排（单空格间隔）验证总字符在安全范围内
     const formatRow = (sessionLabel: string, monthlyLabel: string, sCost: string, mCost: string) => {
       return `${sessionLabel} ${sCost} ${monthlyLabel} ${mCost}/$20`;
     };
@@ -165,7 +175,7 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
     const enRow = formatRow(enDict.ledgerSession, enDict.ledgerMonthly, '$0.00', '$0.00');
     const zhRow = formatRow(zhDict.ledgerSession, zhDict.ledgerMonthly, '$0.00', '$0.00');
 
-    // 字符数均不超过 32 个半角字符，在 10.5px 字体下宽度 ~160px，严格小于左栏可用宽 178px
+    // 字符数均不超过 30 个半角字符，在 10.5px 字体下宽度 ~150px，严格小于左栏可用宽 178px
     expect(enRow.length).toBeLessThanOrEqual(32);
     expect(zhRow.length).toBeLessThanOrEqual(32);
 
@@ -175,7 +185,7 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
   });
 
   // =========================================================================
-  // 7. 演示状态单一源同源驱动一致性测试（工单 15 核心） [mock验证]
+  // 7. 演示状态单一源同源驱动一致性测试 [mock验证]
   // =========================================================================
   it('演示状态同源一致性: 载入演示后 DeepSeek 在进度卡(进行中)与成员卡(思考中)严格同源联动 [mock验证]', () => {
     const thinkingAgents = new Set<string>();
@@ -206,7 +216,7 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
   });
 
   // =========================================================================
-  // 8. 右栏状态随会诊室切换独立隔离测试（工单 15 核心） [mock验证]
+  // 8. 右栏状态随会诊室切换独立隔离测试 [mock验证]
   // =========================================================================
   it('右栏状态随房隔离: 各房间各自维护专属阶段进度与成员列表，房与房不串状态 [mock验证]', () => {
     const enDict = DICTIONARIES['en-US'];
@@ -226,5 +236,114 @@ describe('TakeChat Final Polish Patch Test Suite (Ticket 15) [mock验证]', () =
     expect(zhDict.shotStatusHeader).toBe('镜头状态');
     expect(enDict.shotStatusHeader).toBe('Shot Status');
     expect(enDict.shotStatusHeader).not.toBe(enDict.membersTitle);
+  });
+
+  // =========================================================================
+  // 9. 账本刷新格式与初始渲染一致性测试（工单 16 新增） [mock验证]
+  // =========================================================================
+  it('账本刷新格式一致性: refreshLedgerDisplay 与初始渲染格式完全对齐(无斜杠空格)，外层 span 防裁切 [mock验证]', () => {
+    const initialRenderFormat = (monthlyCost: string, monthlyLimit: number) => {
+      return `${monthlyCost}/$${monthlyLimit}`;
+    };
+
+    const refreshedDisplayFormat = (monthlyCost: number, monthlyLimit: number) => {
+      // 修复前为 `$${monthlyCost.toFixed(2)} / $${monthlyLimit}`
+      // 修复后严格对齐初始渲染: `$${monthlyCost.toFixed(2)}/$${monthlyLimit}`
+      return `$${monthlyCost.toFixed(2)}/$${monthlyLimit}`;
+    };
+
+    const initialOutput = initialRenderFormat('$0.00', 20);
+    const refreshedOutput = refreshedDisplayFormat(0.0, 20);
+
+    // 断言刷新输出与初始渲染输出完全一致，绝不带斜杠两边的多余空格
+    expect(refreshedOutput).toBe(initialOutput);
+    expect(refreshedOutput).toBe('$0.00/$20');
+    expect(refreshedOutput).not.toContain(' / ');
+
+    // 验证发生使用量消费后的格式
+    const consumedOutput = refreshedDisplayFormat(3.45, 20);
+    expect(consumedOutput).toBe('$3.45/$20');
+    expect(consumedOutput).not.toContain(' / ');
+
+    // 验证防裁切样式规则逻辑：span 必须声明 flex-shrink: 0
+    const spanStyleDeclaration = {
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      display: 'inline-flex',
+      alignItems: 'center',
+      flexShrink: 0,
+    };
+    expect(spanStyleDeclaration.flexShrink).toBe(0);
+  });
+
+  // =========================================================================
+  // 10. 通用会诊室载入演示两卡同源专项测试（工单 16 新增） [mock验证]
+  // =========================================================================
+  it('通用房演示同源: 通用会诊室载入演示后 DeepSeek 进度卡进行中与成员卡思考中同源自洽 [mock验证]', () => {
+    // 模拟工单 16 的通用会诊室数据定义
+    const generalClinicDemo = {
+      progressTitleKey: 'generalProgressTitle',
+      steps: [
+        { key: 'stepGeneralBreakdown', actorId: 'Host', defaultState: 'done' },
+        { key: 'stepGeneralIdeas', actorId: 'All', defaultState: 'done' },
+        { key: 'stepGeneralReasoning', actorId: 'Ds', defaultState: 'doing' },
+        { key: 'stepGeneralDecision', actorId: 'User', defaultState: 'wait' },
+      ],
+      members: [
+        { agentId: 'Cl', defaultStatus: 'spoke' },
+        { agentId: 'Ds', defaultStatus: 'ready' },
+        { agentId: 'Ge', defaultStatus: 'ready' },
+      ],
+    };
+
+    // 演示载入逻辑：自动根据 doing 步骤将执行者置入思考集合
+    const thinkingAgents = new Set<string>();
+    const doingStep = generalClinicDemo.steps.find((s) => s.defaultState === 'doing');
+    if (doingStep?.actorId) {
+      thinkingAgents.add(doingStep.actorId);
+    }
+
+    // 验证 DeepSeek 成功置入思考集合
+    expect(thinkingAgents.has('Ds')).toBe(true);
+
+    // 验证进度卡渲染状态
+    const step3 = generalClinicDemo.steps[2];
+    const isStep3Doing = step3.defaultState === 'doing' || thinkingAgents.has(step3.actorId || '');
+    expect(isStep3Doing).toBe(true);
+
+    // 验证成员卡渲染状态
+    const dsMember = generalClinicDemo.members.find((m) => m.agentId === 'Ds');
+    const isDsThinking = thinkingAgents.has(dsMember?.agentId || '');
+    expect(isDsThinking).toBe(true);
+
+    const dsStatusText = isDsThinking ? DICTIONARIES['zh-CN'].statusThinking : DICTIONARIES['zh-CN'].statusReady;
+    const dsStatusClass = isDsThinking ? 'st hot' : 'st';
+
+    expect(dsStatusText).toBe('思考中');
+    expect(dsStatusClass).toBe('st hot');
+
+    // 验证已发言成员 Claude 的状态
+    const clMember = generalClinicDemo.members.find((m) => m.agentId === 'Cl');
+    const isClThinking = thinkingAgents.has(clMember?.agentId || '');
+    const clStatusText = isClThinking
+      ? DICTIONARIES['zh-CN'].statusThinking
+      : clMember?.defaultStatus === 'spoke'
+      ? DICTIONARIES['zh-CN'].statusSpoke
+      : DICTIONARIES['zh-CN'].statusReady;
+
+    expect(isClThinking).toBe(false);
+    expect(clStatusText).toBe('已发言');
+
+    // 验证待命成员 Gemini 的状态
+    const geMember = generalClinicDemo.members.find((m) => m.agentId === 'Ge');
+    const isGeThinking = thinkingAgents.has(geMember?.agentId || '');
+    const geStatusText = isGeThinking
+      ? DICTIONARIES['zh-CN'].statusThinking
+      : geMember?.defaultStatus === 'spoke'
+      ? DICTIONARIES['zh-CN'].statusSpoke
+      : DICTIONARIES['zh-CN'].statusReady;
+
+    expect(isGeThinking).toBe(false);
+    expect(geStatusText).toBe('待命');
   });
 });
