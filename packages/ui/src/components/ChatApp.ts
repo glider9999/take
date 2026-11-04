@@ -1,15 +1,14 @@
 /**
- * @take/ui - ChatApp.ts
- * TakeChat 核心主界面（按 v4 样张 B 三栏重排定版）
- * 严格对齐母本与样张 B 数值：
- * 1. 顶栏 54px；
- * 2. 左栏 212px 索引式：房间（含报错数徽章）＋联系人紧凑行（状态点／思考中／需本地版）＋左下角用量账本小卡；
- * 3. 右栏 272px 进度与状态双卡：本次会诊进度卡 ＋ 成员状态卡；
- * 4. 主区聊天头＋消息流＋composer 输入；
- * 5. 全面复验保留：引擎驱动、流式输出、朱红弧光微摆动效（多处同步）、本地 CLI/ComfyUI 浏览器降级、ComfyUI 报错会诊单结构化建档。
+ * @take/ui - ChatApp.ts (工单 11 分镜与镜头会诊室＋双版对齐终版)
+ * 特性：
+ * 1. 补齐第四间官方预设「分镜与镜头会诊室」；
+ * 2. 结构化分镜卡（ShotCard）：镜号、景别、提示词、状态（待定/已出图/已定稿）流式卡片渲染；
+ * 3. 分镜表汇总：右栏实时展示全量分镜汇总表格；
+ * 4. 出图挂钩与双版对齐：桌面端一键调用 ComfyUI 生成样片并回贴更新，浏览器版标准友好阻断降级；
+ * 5. 完整保留 v4 样张 B 三栏排布、朱红弧光微摆动效与本地用量账本。
  */
 
-import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger } from '@take/engine';
+import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger, StoryboardManager, ShotCard } from '@take/engine';
 import { BrowserKeyStore, DesktopKeyStore, KeyStore, ComfyUiAdapter, ComfyExecutionResult } from '@take/adapters';
 import { t, getLocale, setLocale, Locale } from '../i18n/index.js';
 import { SettingsModal } from './SettingsModal.js';
@@ -34,6 +33,7 @@ export class ChatApp {
   private keyStore: KeyStore;
   private session: Session;
   private agents: ExtendedAgentProfile[];
+  private storyboard: StoryboardManager;
   private isBroadcastMode: boolean = true;
   private isGenerating: boolean = false;
   private thinkingAgents: Set<string> = new Set();
@@ -57,7 +57,36 @@ export class ChatApp {
       this.keyStore = new BrowserKeyStore();
     }
 
-    // 联系人定义（严格按照样张 B）
+    // 初始化分镜管理器
+    this.storyboard = new StoryboardManager([
+      {
+        shotNumber: 1,
+        shotScale: '全景',
+        visualContent: '深夜便利店外景，女孩撑伞走过水洼，霓虹倒影闪烁',
+        prompt: 'cinematic wide shot, convenience store at night, puddles reflecting neon lights, 35mm, slow tracking shot',
+        status: 'rendered',
+        imageUrl: 'http://127.0.0.1:8188/view?filename=shot1_rainy_street.png',
+        updatedBy: 'Grok Bot',
+      },
+      {
+        shotNumber: 2,
+        shotScale: '过肩中景',
+        visualContent: '雨幕中女孩撑伞侧脸，冷色调色温，雨滴顺伞沿滑落',
+        prompt: 'over-the-shoulder medium shot, girl profile under transparent umbrella, rain droplets falling, cold teal tone',
+        status: 'pending',
+        updatedBy: 'Claude',
+      },
+      {
+        shotNumber: 3,
+        shotScale: '特写',
+        visualContent: '水洼中倒映的粉青色便利店霓虹招牌与涟漪特写',
+        prompt: 'macro close-up, neon magenta reflections in water ripple, shallow depth of field, anamorphic lens',
+        status: 'pending',
+        updatedBy: 'ChatGPT',
+      },
+    ]);
+
+    // 联系人体系
     this.agents = [
       { id: 'Cl', name: 'Claude', shortName: 'Cl', avatarClass: 'a-claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api', status: 'spoke' },
       { id: 'Gp', name: 'ChatGPT', shortName: 'Gp', avatarClass: 'a-gpt', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api', status: 'spoke' },
@@ -128,10 +157,16 @@ export class ChatApp {
     const curLocale = getLocale();
     const otherLocale = curLocale === 'zh-CN' ? 'EN' : '中';
 
-    const isComfyRoom = this.currentRoomId === 'comfyui-fix';
-    const roomTitle = isComfyRoom ? t('comfyFix') : '短片《雨夜》制作会诊';
+    let roomTitle = '短片《雨夜》制作会诊';
+    if (this.currentRoomId === 'comfyui-fix') {
+      roomTitle = t('comfyFix');
+    } else if (this.currentRoomId === 'storyboard-clinic') {
+      roomTitle = t('storyboardClinic');
+    } else if (this.currentRoomId === 'general-clinic') {
+      roomTitle = t('generalClinic');
+    }
 
-    // 1. 左栏云端助手
+    // 1. 左栏云端助手列表
     const cloudAgentsHtml = this.agents
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
@@ -146,7 +181,7 @@ export class ChatApp {
       })
       .join('');
 
-    // 2. 左栏本地工具
+    // 2. 左栏本地工具列表
     const localToolsHtml = `
       <div class="item" data-tool="claude-code">
         <div class="ava a-cli">Cc</div>Claude Code
@@ -183,9 +218,86 @@ export class ChatApp {
       })
       .join('');
 
-    // ComfyUI 会诊室诊断入口
-    const comfyBannerHtml = isComfyRoom
-      ? `
+    // 4. 分镜表汇总表格（分镜会诊室右栏卡片）
+    const shots = this.storyboard.getStoryboardSummary();
+    const sbTableRows = shots
+      .map((s) => {
+        let statusBadge = `<span class="badge" style="background:#F5E9C8;color:#8A6D1F;">${t('shotStatusPending')}</span>`;
+        if (s.status === 'rendered') {
+          statusBadge = `<span class="badge" style="background:#E1F5FE;color:#0277BD;">${t('shotStatusRendered')}</span>`;
+        } else if (s.status === 'finalized') {
+          statusBadge = `<span class="badge" style="background:#E8F5E9;color:#2E7D32;">${t('shotStatusFinalized')}</span>`;
+        }
+        return `
+          <tr>
+            <td style="font-weight:700;">#${s.shotNumber}</td>
+            <td>${s.shotScale}</td>
+            <td>${statusBadge}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    // 5. 分镜卡 HTML 生成器
+    const renderShotCardHtml = (shot: ShotCard) => {
+      let badgeClass = 'pending';
+      let badgeText = t('shotStatusPending');
+      if (shot.status === 'rendered') {
+        badgeClass = 'rendered';
+        badgeText = t('shotStatusRendered');
+      } else if (shot.status === 'finalized') {
+        badgeClass = 'finalized';
+        badgeText = t('shotStatusFinalized');
+      }
+
+      const imgHtml = shot.imageUrl
+        ? `<div class="img-preview"><img src="${shot.imageUrl}" alt="镜头 #${shot.shotNumber} 样片" /></div>`
+        : '';
+
+      return `
+        <div class="shot-card" data-shot="${shot.shotNumber}">
+          <div class="head">
+            <span class="t">镜头 #${shot.shotNumber} · ${shot.shotScale}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="desc">${shot.visualContent}</div>
+          <div class="pbox">${shot.prompt}</div>
+          ${imgHtml}
+          <div class="actions">
+            <button class="shot-btn btn-render-shot" data-shot="${shot.shotNumber}">${t('btnRenderShot')}</button>
+            <button class="shot-btn primary btn-finalize-shot" data-shot="${shot.shotNumber}">${t('btnFinalizeShot')}</button>
+          </div>
+        </div>
+      `;
+    };
+
+    // 6. 主消息区内容根据房间切换
+    let mainMessagesHtml = '';
+    if (this.currentRoomId === 'storyboard-clinic') {
+      mainMessagesHtml = `
+        <div class="msg host">
+          <div class="ava a-host lg">主</div>
+          <div>
+            <div class="who"><b>主持人</b> 10:00</div>
+            <div class="bubble">欢迎进入 <b>分镜与镜头会诊室</b>。本轮流程：ChatGPT 规划分镜结构、Claude 精炼镜头英文提示词、DeepSeek 调整参数，Grok Bot 调度 ComfyUI 生成样片并汇总成表。</div>
+          </div>
+        </div>
+
+        <div class="msg" data-msg-agent="Gp">
+          <div class="ava a-gpt lg">Gp</div>
+          <div>
+            <div class="who"><b>ChatGPT</b> · 分镜师</div>
+            <div class="bubble">
+              分镜大纲已理清，雨夜便利店的三连镜结构如下：
+              ${renderShotCardHtml(shots[0])}
+              ${renderShotCardHtml(shots[1])}
+              ${renderShotCardHtml(shots[2])}
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (this.currentRoomId === 'comfyui-fix') {
+      mainMessagesHtml = `
         <div class="comfy-action-bar" style="background:#FFFDF8;border:1px solid #E3DCCB;border-radius:11px;padding:11px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
           <div style="font-size:12.5px;color:#1C1A17;">
             🎨 <b>ComfyUI 诊断工作台</b>：提交工作流 JSON 进行执行诊断与节点报错排查
@@ -195,8 +307,48 @@ export class ChatApp {
             ${!this.isDesktop ? `<span style="font-size:10px;margin-left:4px;opacity:0.9;">(${t('needsDesktop')})</span>` : ''}
           </button>
         </div>
-      `
-      : '';
+        <div class="msg host">
+          <div class="ava a-host lg">主</div>
+          <div>
+            <div class="who"><b>主持人</b> 09:40</div>
+            <div class="bubble">这里是 <b>ComfyUI 报错会诊室</b>。请提交出问题的工作流，系统将自动为你生成结构化报错会诊单。</div>
+          </div>
+        </div>
+      `;
+    } else {
+      mainMessagesHtml = `
+        <div class="msg host">
+          <div class="ava a-host lg">主</div>
+          <div>
+            <div class="who"><b>主持人</b> 09:41</div>
+            <div class="bubble">本轮目标：为《雨夜》出一条可直接跑的视频提示词、一套 ComfyUI 工作流和三格分镜。Claude 先给提示词。</div>
+          </div>
+        </div>
+
+        <div class="msg" data-msg-agent="Cl">
+          <div class="ava a-claude lg">Cl</div>
+          <div>
+            <div class="who"><b>Claude</b> 09:42</div>
+            <div class="bubble">提示词好了：「深夜便利店，雨幕中的霓虹倒影，女主角撑伞走过镜头，浅景深，胶片颗粒，冷色调」。要点在倒影和颗粒，别堆形容词。</div>
+          </div>
+        </div>
+
+        <div class="msg" data-msg-agent="Gp">
+          <div class="ava a-gpt lg">Gp</div>
+          <div>
+            <div class="who"><b>ChatGPT</b> 09:44</div>
+            <div class="bubble">
+              分镜三格：建立镜头、过肩、特写。
+              <div class="frames">
+                <div class="frame">① 建立 · 雨夜街道</div>
+                <div class="frame">② 过肩 · 伞下侧脸</div>
+                <div class="frame">③ 特写 · 霓虹倒影</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
     this.container.innerHTML = `
       <div class="app">
@@ -218,6 +370,9 @@ export class ChatApp {
             <div class="item ${this.currentRoomId === 'general-clinic' ? 'on' : ''}" data-room="general-clinic">${t('generalClinic')}</div>
             <div class="item ${this.currentRoomId === 'comfyui-fix' ? 'on' : ''}" data-room="comfyui-fix">
               ${t('comfyFix')} <span class="err-n">1</span>
+            </div>
+            <div class="item ${this.currentRoomId === 'storyboard-clinic' ? 'on' : ''}" data-room="storyboard-clinic">
+              ${t('storyboardClinic')} <span class="badge" style="background:#E1F5FE;color:#0277BD;">新</span>
             </div>
 
             <h4>${t('cloudAgentsTitle')}</h4>
@@ -242,71 +397,11 @@ export class ChatApp {
           <section class="main">
             <div class="chat-head">
               <div class="t" id="chat-title">${roomTitle}</div>
-              <div class="s" id="chat-subtitle">${t('modeTagBroadcast')} · Claude、Grok Bot、ChatGPT、DeepSeek 在场</div>
+              <div class="s" id="chat-subtitle">${t('modeTagBroadcast')} · ChatGPT、Claude、DeepSeek、Grok Bot 在场</div>
             </div>
 
             <div class="msgs" id="msg-stream">
-              ${comfyBannerHtml}
-              ${
-                !isComfyRoom
-                  ? `
-                <div class="msg host">
-                  <div class="ava a-host lg">主</div>
-                  <div>
-                    <div class="who"><b>主持人</b> 09:41</div>
-                    <div class="bubble">本轮目标：为《雨夜》出一条可直接跑的视频提示词、一套 ComfyUI 工作流和三格分镜。Claude 先给提示词。</div>
-                  </div>
-                </div>
-
-                <div class="msg" data-msg-agent="Cl">
-                  <div class="ava a-claude lg">Cl</div>
-                  <div>
-                    <div class="who"><b>Claude</b> 09:42</div>
-                    <div class="bubble">提示词好了：「深夜便利店，雨幕中的霓虹倒影，女主角撑伞走过镜头，浅景深，胶片颗粒，冷色调」。要点在倒影和颗粒，别堆形容词。</div>
-                  </div>
-                </div>
-
-                <div class="msg" data-msg-agent="Gp">
-                  <div class="ava a-gpt lg">Gp</div>
-                  <div>
-                    <div class="who"><b>ChatGPT</b> 09:44</div>
-                    <div class="bubble">
-                      分镜三格：建立镜头、过肩、特写。
-                      <div class="frames">
-                        <div class="frame">① 建立 · 雨夜街道</div>
-                        <div class="frame">② 过肩 · 伞下侧脸</div>
-                        <div class="frame">③ 特写 · 霓虹倒影</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="typing" id="typing-indicator">
-                  <div class="ava a-ds lg">DS</div>
-                  <div>
-                    <div class="who"><b>DeepSeek</b> 正在思考</div>
-                    <div class="bubble">正在把提示词翻成工作流参数……</div>
-                  </div>
-                </div>
-              `
-                  : `
-                <div class="msg host">
-                  <div class="ava a-host lg">主</div>
-                  <div>
-                    <div class="who"><b>主持人</b> 09:40</div>
-                    <div class="bubble">欢迎进入 <b>ComfyUI 报错会诊室</b>。请点击上方按钮提交出问题的工作流 JSON，本室将自动为你排查失败节点并制定修复方案。</div>
-                  </div>
-                </div>
-
-                <div class="msg" data-msg-agent="Gr">
-                  <div class="ava a-grok lg">Gr</div>
-                  <div>
-                    <div class="who"><b>Grok Bot</b> 09:41</div>
-                    <div class="bubble">Grok Bot 挂载就绪。支持探测 <code>http://127.0.0.1:8188</code>，遇到 CUDA OOM、缺少 Checkpoint 或节点连接异常会自动建档。</div>
-                  </div>
-                </div>
-              `
-              }
+              ${mainMessagesHtml}
             </div>
 
             <div class="composer">
@@ -328,11 +423,29 @@ export class ChatApp {
               <div class="step wait"><span class="ic">5</span>${t('stepHostSummary')}</div>
             </div>
 
-            <!-- 卡片 2: 成员状态 -->
-            <div class="card">
-              <h5>${t('membersTitle')}</h5>
-              ${memberRowsHtml}
-            </div>
+            <!-- 卡片 2: 分镜表汇总（若在分镜会诊室）或成员状态 -->
+            ${
+              this.currentRoomId === 'storyboard-clinic'
+                ? `
+              <div class="card">
+                <h5>${t('storyboardTableTitle')}</h5>
+                <table class="sb-table">
+                  <thead>
+                    <tr><th>镜号</th><th>景别</th><th>状态</th></tr>
+                  </thead>
+                  <tbody id="sb-table-body">
+                    ${sbTableRows}
+                  </tbody>
+                </table>
+              </div>
+            `
+                : `
+              <div class="card">
+                <h5>${t('membersTitle')}</h5>
+                ${memberRowsHtml}
+              </div>
+            `
+            }
           </aside>
         </div>
       </div>
@@ -368,14 +481,55 @@ export class ChatApp {
       });
     });
 
-    // ComfyUI 提交工作流按钮（双端降级）
-    const btnSubmitWorkflow = this.container.querySelector('#btn-submit-workflow');
-    btnSubmitWorkflow?.addEventListener('click', () => {
-      if (!this.isDesktop) {
-        alert(t('needsDesktopNotice'));
-        return;
-      }
-      this.executeComfyWorkflowDiagnosis();
+    // 分镜卡动作：ComfyUI 出图与定稿
+    this.container.querySelectorAll<HTMLButtonElement>('.btn-render-shot').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const shotNum = parseInt(btn.getAttribute('data-shot') || '0', 10);
+        if (!shotNum) return;
+
+        if (!this.isDesktop) {
+          // 浏览器版标准降级阻断
+          alert(t('needsDesktopNotice'));
+          return;
+        }
+
+        // 桌面端执行 ComfyUI 出图
+        btn.disabled = true;
+        btn.textContent = '出图中…';
+        try {
+          const adapter = new ComfyUiAdapter();
+          const shot = this.storyboard.getShot(shotNum);
+          const promptId = await adapter.queuePrompt({
+            '3': { class_type: 'KSampler', inputs: { seed: 1000 + shotNum, steps: 25, cfg: 7.0 } },
+          });
+          const result: ComfyExecutionResult = await adapter.pollHistory(promptId, 30);
+          if (result.success && result.imageUrls.length > 0) {
+            this.storyboard.attachRenderedImage(shotNum, result.imageUrls[0], 'Grok Bot');
+            this.render();
+            this.bindEvents();
+          } else {
+            alert(`出图失败: ${result.rawError || '未知错误'}`);
+            btn.disabled = false;
+            btn.textContent = t('btnRenderShot');
+
+          }
+        } catch (err) {
+          alert(`出图异常: ${err instanceof Error ? err.message : String(err)}`);
+          btn.disabled = false;
+          btn.textContent = t('btnRenderShot');
+        }
+      });
+    });
+
+    this.container.querySelectorAll<HTMLButtonElement>('.btn-finalize-shot').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const shotNum = parseInt(btn.getAttribute('data-shot') || '0', 10);
+        if (shotNum) {
+          this.storyboard.finalizeShot(shotNum, 'User');
+          this.render();
+          this.bindEvents();
+        }
+      });
     });
 
     // 设置弹窗
@@ -434,115 +588,6 @@ export class ChatApp {
         }
       });
     });
-  }
-
-  /**
-   * 桌面端执行 ComfyUI 工作流诊断并在会话流贴回生图或结构化会诊单
-   */
-  private async executeComfyWorkflowDiagnosis(): Promise<void> {
-    const stream = this.container.querySelector('#msg-stream') as HTMLElement;
-    if (!stream) return;
-
-    // 1. 用户侧提交工作流
-    const userMsgEl = document.createElement('div');
-    userMsgEl.className = 'msg me';
-    userMsgEl.innerHTML = `
-      <div class="ava a-user lg">${t('you')}</div>
-      <div>
-        <div class="who"><b>${t('you')}</b></div>
-        <div class="bubble">
-          已提交工作流诊断任务：<code>雨夜霓虹_SDXL_高精修复.json</code>
-          <div style="font-size:11.5px;color:#7A7368;margin-top:3px;">服务端点: ${ComfyUiAdapter.getSavedEndpoint()} · 正在派发队列并轮询执行结果…</div>
-        </div>
-      </div>
-    `;
-    stream.appendChild(userMsgEl);
-    stream.scrollTop = stream.scrollHeight;
-
-    const adapter = new ComfyUiAdapter();
-
-    const mockWorkflow = {
-      '3': { class_type: 'KSampler', inputs: { seed: 42, steps: 30, cfg: 7.5, model: ['4', 0] } },
-      '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sd_xl_base_1.0.safetensors' } },
-    };
-
-    try {
-      const promptId = await adapter.queuePrompt(mockWorkflow);
-      const result: ComfyExecutionResult = await adapter.pollHistory(promptId, 30);
-
-      if (result.success && result.imageUrls.length > 0) {
-        // 成功生图贴回
-        const successEl = document.createElement('div');
-        successEl.className = 'msg';
-        const imagesHtml = result.imageUrls
-          .map((url) => `<img src="${url}" alt="ComfyUI 生成结果" style="max-width:100%;border-radius:8px;margin-top:6px;border:1px solid #E3DCCB;" />`)
-          .join('');
-
-        successEl.innerHTML = `
-          <div class="ava a-grok lg">Gr</div>
-          <div>
-            <div class="who"><b>Grok Bot</b></div>
-            <div class="bubble">
-              ✓ <b>ComfyUI 渲染成功</b>！已取回生成图像结果：
-              <div style="margin-top:6px;">${imagesHtml}</div>
-            </div>
-          </div>
-        `;
-        stream.appendChild(successEl);
-      } else {
-        // 失败：生成结构化会诊单
-        const errSheetEl = document.createElement('div');
-        errSheetEl.className = 'msg';
-
-        const err = result.structuredError;
-        const failedNodeId = err?.nodeId || result.errorNodeId || '4';
-        const nodeType = err?.nodeType || 'KSampler';
-        const exType = err?.exceptionType || 'RuntimeError';
-        const exMsg = err?.exceptionMessage || result.rawError || 'CUDA out of memory. Tried to allocate 2.40 GiB';
-        const inputsText = err?.inputSummary || '{\n  "seed": 42,\n  "steps": 30,\n  "cfg": 7.5\n}';
-
-        errSheetEl.innerHTML = `
-          <div class="ava a-grok lg">Gr</div>
-          <div>
-            <div class="who"><b>Grok Bot</b></div>
-            <div class="bubble" style="background:#FFF8F6;border:1.5px solid #C8402A;">
-              <b style="color:#C8402A;font-size:13.5px;">📋 ${t('comfyClinicSheet')}</b>
-              <div style="margin-top:6px;font-size:12.5px;line-height:1.6;">
-                <div>• <b>工作流</b>：<code>雨夜霓虹_SDXL_高精修复.json</code> (Prompt ID: <code>${result.promptId}</code>)</div>
-                <div>• <b>失败节点</b>：Node <code>[${failedNodeId}]</code> (${nodeType})</div>
-                <div>• <b>异常类型</b>：<span style="color:#C8402A;font-family:monospace;font-weight:bold;">${exType}</span></div>
-                <div>• <b>异常消息原文</b>：
-                  <blockquote style="margin:4px 0;padding:6px 10px;background:#FAF7F0;border-left:3px solid #C8402A;color:#1C1A17;font-family:monospace;font-size:11.5px;">${exMsg}</blockquote>
-                </div>
-                <div>• <b>出错节点入参摘要</b>：
-                  <pre style="margin:4px 0;padding:6px 10px;background:#FAF7F0;border:1px solid #E3DCCB;border-radius:6px;font-size:11px;overflow-x:auto;">${inputsText}</pre>
-                </div>
-              </div>
-              <div style="margin-top:8px;font-size:12px;color:#57524A;border-top:1px dashed #E3DCCB;padding-top:6px;">
-                会诊已自动建档并通知在场专家。<b>DeepSeek</b>、<b>Claude</b> 请接入分析并给出修复方案。
-              </div>
-            </div>
-          </div>
-        `;
-        stream.appendChild(errSheetEl);
-      }
-    } catch (e) {
-      const errEl = document.createElement('div');
-      errEl.className = 'msg';
-      errEl.innerHTML = `
-        <div class="ava a-grok lg">Gr</div>
-        <div>
-          <div class="who"><b>Grok Bot</b></div>
-          <div class="bubble" style="color:#C8402A;">
-            ✗ <b>无法提交 ComfyUI 任务</b>：${e instanceof Error ? e.message : String(e)}
-            <div style="margin-top:4px;font-size:11.5px;color:#7A7368;">请检查设置面板中的 ComfyUI 服务地址或确认本地服务是否已启动。</div>
-          </div>
-        </div>
-      `;
-      stream.appendChild(errEl);
-    }
-
-    stream.scrollTop = stream.scrollHeight;
   }
 
   private async triggerTurn(prompt: string): Promise<void> {
@@ -635,7 +680,7 @@ export class ChatApp {
       this.thinkingAgents.delete(agentId);
     }
 
-    // 1. 同步左栏紧凑行
+    // 同步左栏紧凑行
     const railItem = this.container.querySelector(`.rail .item[data-agent="${agentId}"]`);
     if (railItem) {
       railItem.classList.toggle('thinking', isThinking);
@@ -659,22 +704,7 @@ export class ChatApp {
       }
     }
 
-    // 2. 同步右栏成员状态行
-    const memberRow = this.container.querySelector(`.right .mrow[data-member="${agentId}"]`);
-    if (memberRow) {
-      const stEl = memberRow.querySelector('.st');
-      if (stEl) {
-        if (isThinking) {
-          stEl.className = 'st hot';
-          stEl.textContent = t('statusThinking');
-        } else {
-          stEl.className = 'st';
-          stEl.textContent = t('statusSpoke');
-        }
-      }
-    }
-
-    // 3. 同步主消息区头像思考态
+    // 同步主消息区头像思考态
     this.container.querySelectorAll(`.msgs [data-av="${agentId}"]`).forEach((el) => {
       el.classList.toggle('think', isThinking);
     });
