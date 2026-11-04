@@ -1,5 +1,7 @@
 # TakeChat (`glider9999/take`)
 
+[English](README.en.md) | 简体中文
+
 > **通用多智能体群聊协作客户端 · 真正开源、纯本地安全、多厂商大模型协同**  
 > 遵循 **Apache-2.0** 开源许可证
 
@@ -46,12 +48,8 @@ pnpm -r build
   ```
 - **执行自动化单元测试套件**：
   ```bash
-  # 运行引擎与账本单测
-  pnpm --filter @take/engine test
-  # 运行连接层与适配器单测
-  pnpm --filter @take/adapters test
-  # 运行工具权限门单测
-  pnpm --filter @take/tools test
+  # 运行全仓自动化单测
+  pnpm -r test
   ```
 
 ---
@@ -84,7 +82,14 @@ pnpm -r build
 
 ---
 
+## 🔒 密钥存储与安全使用守则
+
+- **浏览器轻装版**：API Key 仅存放于本浏览器的本地存储（Local Storage）。**切勿在公共电脑或他人设备上配置高额度 API Key！**
+- **桌面完全版**：API Key 通过操作系统原生安全凭据库（macOS Keychain / Windows Credential Manager / Linux Secret Service）加密存放。
+- **联调自检机制**：在「设置」面板中点击「测试连接」可发起最小 ping 探针，自检过程**不落聊天历史、不计入财务账本**。
+
+---
+
 ## 📄 开源许可证与社区合规
 
 本项目遵循 **Apache License 2.0** 许可证开源，完整第三方开源依赖声明详见 `THIRD_PARTY_NOTICES.md`。
-
