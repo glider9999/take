@@ -2,27 +2,31 @@
 
 English | [简体中文](README.md)
 
-> **Universal Multi-Agent Group Chat Client · Truly Open Source, Local-First Privacy, Multi-Model Synergy**  
+> **Universal Multi-Agent Collaborative Group Chat Client · Truly Open Source, Local-First Privacy, Multi-Model Synergy**  
 > Licensed under **Apache-2.0**
 
 ---
 
 ## 🌟 Why TakeChat?
 
-Unlike conventional single-model interfaces or closed proprietary clients, **TakeChat** brings multiple AI assistants (Claude, ChatGPT, Gemini, DeepSeek, Kimi, Grok, etc.) and local coding CLIs together as "independent contacts" in a unified group chat.
+Unlike conventional single-model interfaces or closed proprietary wrappers, **TakeChat** brings multiple AI assistants (Claude, ChatGPT, Gemini, DeepSeek, Moonshot, Grok, etc.) and local coding CLIs together as "independent contacts" in a unified group chat.
 
-- **Group Brainstorming & Consultation**: Supports 1-on-1 direct chat, `@Mention` targeted dispatch, and Full Group Consultation (broadcast).
-- **Dynamic Peer Visibility**: Earlier agent responses automatically become visible context for subsequent agents in the same turn, enabling multi-agent relay and aligned cognition.
-- **Strictly Local Privacy**: Zero telemetry, zero middleman proxy servers. API keys and chat history stay locked inside your OS native credential vault or local browser storage.
+- **Multi-Agent Relay & Aligned Cognition**: Supports "Group Consultation (All respond once per turn)" and "@Mention Direct Mode". Earlier agent responses automatically become visible context for subsequent agents in the same turn, enabling structured multi-agent relay.
+- **Four Official Built-in Clinic Rooms**:
+  1. 🎨 **Prompt Clinic**: Multi-model prompt polishing, constraint compression, and vision-to-prompt tuning;
+  2. 🛠️ **ComfyUI Repair**: Workflow JSON submission, queue polling, and structured node error diagnosis;
+  3. 🎬 **Storyboard & Camera Clinic**: Scene breakdown, shot scale planning, camera prompt generation, and storyboard table summary;
+  4. 💡 **General Clinic**: Open-ended multi-agent brainstorming and collaborative problem solving.
+- **Strictly Local-First Privacy**: Zero telemetry, zero middleman proxy servers. API keys and chat history stay locked inside your OS native credential vault or local browser storage.
 - **Dual Edition Architecture**:
-  - 🌐 **Web Lightweight Edition**: Hosted statically on GitHub Pages, zero-install, direct cloud API connections, zero hosting overhead.
+  - 🌐 **Web Lightweight Edition**: Hosted statically on GitHub Pages, zero-install, direct cloud API connections, zero hosting overhead;
   - 🖥️ **Desktop Native Edition**: Powered by Tauri v2 with Rust, supporting cloud APIs + local ACP/CLIs (Claude Code, Cursor ACP, Aider) + local ComfyUI workflow diagnostics.
 
 ---
 
 ## 🛠️ Building from Source (Topological Order)
 
-This project is organized as a `pnpm workspaces` Monorepo. Because applications depend on precompiled outputs of core packages, builds must follow the **topological dependency sequence**:
+This project is organized as a `pnpm workspaces` Monorepo. Builds must follow the **topological dependency sequence**:
 
 ```bash
 # 1. Clone the repository
@@ -32,7 +36,7 @@ cd take
 # 2. Install dependencies
 pnpm install
 
-# 3. Build all packages in topological sequence (engine -> ui -> adapters -> web / desktop)
+# 3. Build all packages in topological sequence (engine -> adapters -> ui -> web / desktop)
 pnpm -r build
 ```
 
@@ -48,7 +52,7 @@ pnpm -r build
   ```
 - **Run Automated Vitest Test Suites**:
   ```bash
-  pnpm -r test
+  pnpm test
   ```
 
 ---
