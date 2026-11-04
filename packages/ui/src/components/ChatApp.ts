@@ -1,12 +1,12 @@
 /**
  * @take/ui - ChatApp.ts
- * TakeChat 核心主界面（工单 13 补丁单：调用侧双语清零、徽章收口、右栏空态与用词统一）
+ * TakeChat 核心主界面（工单 14 微修单：尾巴全清终版）
  * 核心优化：
- * 1. 界面模板彻底消除硬编码中文，说话人、在场后缀、新徽章等全调 t()；
- * 2. 徽章收口：同一行同一时刻严格只亮一枚最高优先级徽章；
- * 3. 账本小卡标题防折行，单行紧凑摘要彻底消除底部裁切；
- * 4. 模式用词全链路统一为「全员会诊／点名某人」（EN: All models reply / Mention one）；
- * 5. 首屏空态时右栏同步呈现空态提示，杜绝未载入即展示假进度与假状态。
+ * 1. 彻底根除 isThinking 中的硬编码特判（删除 || agent.id === 'Ds'），思考状态严格只认真实 thinkingAgents 集合；
+ * 2. 界面调用侧硬编码彻底清零：alt 文本、工作台说明、按钮 title、出图中、alert 报错、气泡思考中均改调 t()；
+ * 3. 成员角色说明支持 roleZh 与 roleEn 双语展示，不再暴露原始提示词英文段；
+ * 4. 点名模式占位符联动：输入框随全员会诊与点名模式动态切换占位词条（inputPlaceholder / inputPlaceholderMention）；
+ * 5. 首屏空态时右栏进度卡与成员卡展示空态提示，载入演示后才激活真实状态。
  */
 
 import { ContextEngine, Session, Message, AgentProfile, EngineEvent, LocalLedger, StoryboardManager, ShotCard } from '@take/engine';
@@ -23,6 +23,8 @@ export interface ExtendedAgentProfile extends AgentProfile {
   shortName: string;
   avatarClass: string;
   driverType?: 'cloud_api' | 'local_acp' | 'local_pty';
+  roleZh: string;
+  roleEn: string;
   status: 'spoke' | 'ready' | 'thinking' | 'no_key';
 }
 
@@ -87,14 +89,14 @@ export class ChatApp {
       },
     ]);
 
-    // 联系人体系
+    // 联系人体系（增加 roleZh / roleEn 专有角色说明字段）
     this.agents = [
-      { id: 'Cl', name: 'Claude', shortName: 'Cl', avatarClass: 'a-claude', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api', status: 'spoke' },
-      { id: 'Gp', name: 'ChatGPT', shortName: 'Gp', avatarClass: 'a-gpt', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api', status: 'spoke' },
-      { id: 'Ge', name: 'Gemini', shortName: 'Ge', avatarClass: 'a-gem', systemPrompt: '查资料 · 知识检索', provider: 'google', modelName: 'gemini-2-0-flash', driverType: 'cloud_api', status: 'ready' },
-      { id: 'Ds', name: 'DeepSeek', shortName: 'DS', avatarClass: 'a-ds', systemPrompt: '写代码 · 技术推理', provider: 'deepseek', modelName: 'deepseek-reasoner', driverType: 'cloud_api', status: 'thinking' },
-      { id: 'Gr', name: 'Grok Bot', shortName: 'Gr', avatarClass: 'a-grok', systemPrompt: '搭工作流 · 工作流专家', provider: 'xai', modelName: 'grok-2', driverType: 'cloud_api', status: 'ready' },
-      { id: 'Cc', name: 'Claude Code', shortName: 'Cc', avatarClass: 'a-cli', systemPrompt: '本地编程 · ACP 架构', provider: 'local-cli', modelName: 'claude-code-acp', driverType: 'local_acp', status: 'ready' },
+      { id: 'Cl', name: 'Claude', shortName: 'Cl', avatarClass: 'a-claude', roleZh: '写提示词 · 提示词专家', roleEn: 'Prompts · Prompt Expert', systemPrompt: '写提示词 · 提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api', status: 'spoke' },
+      { id: 'Gp', name: 'ChatGPT', shortName: 'Gp', avatarClass: 'a-gpt', roleZh: '出分镜图 · 分镜师', roleEn: 'Storyboards · Storyboard Artist', systemPrompt: '出分镜图 · 分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api', status: 'spoke' },
+      { id: 'Ge', name: 'Gemini', shortName: 'Ge', avatarClass: 'a-gem', roleZh: '查资料 · 知识检索', roleEn: 'Research · Knowledge Retrieval', systemPrompt: '查资料 · 知识检索', provider: 'google', modelName: 'gemini-2-0-flash', driverType: 'cloud_api', status: 'ready' },
+      { id: 'Ds', name: 'DeepSeek', shortName: 'DS', avatarClass: 'a-ds', roleZh: '写代码 · 技术推理', roleEn: 'Coding · Technical Reasoning', systemPrompt: '写代码 · 技术推理', provider: 'deepseek', modelName: 'deepseek-reasoner', driverType: 'cloud_api', status: 'thinking' },
+      { id: 'Gr', name: 'Grok Bot', shortName: 'Gr', avatarClass: 'a-grok', roleZh: '搭工作流 · 工作流专家', roleEn: 'Workflow · Pipeline Specialist', systemPrompt: '搭工作流 · 工作流专家', provider: 'xai', modelName: 'grok-2', driverType: 'cloud_api', status: 'ready' },
+      { id: 'Cc', name: 'Claude Code', shortName: 'Cc', avatarClass: 'a-cli', roleZh: '本地编程 · ACP 架构', roleEn: 'Local Coding · ACP Stdio', systemPrompt: '本地编程 · ACP 架构', provider: 'local-cli', modelName: 'claude-code-acp', driverType: 'local_acp', status: 'ready' },
     ];
 
     this.session = {
@@ -112,6 +114,10 @@ export class ChatApp {
   }
 
   public mount(): void {
+    const curLocale = getLocale();
+    if (typeof document !== 'undefined') {
+      document.title = curLocale === 'zh-CN' ? 'TakeChat · 多智能体协作群聊' : 'TakeChat · Multi-Agent Group Chat';
+    }
     this.render();
     this.bindEvents();
     this.refreshLedgerDisplay();
@@ -167,13 +173,14 @@ export class ChatApp {
       roomTitle = t('generalClinic');
     }
 
-    // 1. 左栏云端助手列表
+    // 1. 左栏云端助手列表（彻底删除 || agent.id === 'Ds'，只认真实 thinking 集合）
     const cloudAgentsHtml = this.agents
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
-        const isThinking = this.thinkingAgents.has(agent.id) || agent.id === 'Ds';
+        const isThinking = this.thinkingAgents.has(agent.id);
+        const roleDesc = curLocale === 'zh-CN' ? agent.roleZh : agent.roleEn;
         return `
-          <div class="item ${isThinking ? 'thinking' : ''}" data-agent="${agent.id}">
+          <div class="item ${isThinking ? 'thinking' : ''}" data-agent="${agent.id}" title="${roleDesc}">
             <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
             ${agent.name}
             ${isThinking ? `<span class="think-tag">${t('statusThinking')}</span>` : `<span class="dot"></span>`}
@@ -182,7 +189,7 @@ export class ChatApp {
       })
       .join('');
 
-    // 2. 左栏本地工具列表：徽章收口，同一行同一时刻严格只亮最高优先级一枚
+    // 2. 左栏本地工具列表：单徽章收口
     const localToolsHtml = `
       <div class="item" data-tool="claude-code">
         <div class="ava a-cli">Cc</div>Claude Code
@@ -194,11 +201,11 @@ export class ChatApp {
       </div>
     `;
 
-    // 3. 右栏成员状态
+    // 3. 右栏成员状态（彻底删除 || agent.id === 'Ds'）
     const memberRowsHtml = this.agents
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
-        const isThinking = this.thinkingAgents.has(agent.id) || agent.id === 'Ds';
+        const isThinking = this.thinkingAgents.has(agent.id);
         let stClass = 'st';
         let stText = t('statusReady');
 
@@ -239,7 +246,7 @@ export class ChatApp {
       })
       .join('');
 
-    // 5. 分镜卡渲染（无本机裂图）
+    // 5. 分镜卡渲染（图片 alt 走 i18n 词条）
     const renderShotCardHtml = (shot: ShotCard) => {
       let badgeClass = 'pending';
       let badgeText = t('shotStatusPending');
@@ -252,7 +259,7 @@ export class ChatApp {
       }
 
       const imgHtml = shot.imageUrl
-        ? `<div class="img-preview"><img src="${shot.imageUrl}" alt="镜头 #${shot.shotNumber} 样片" /></div>`
+        ? `<div class="img-preview"><img src="${shot.imageUrl}" alt="${t('shotCardTitle')} #${shot.shotNumber} ${t('shotAltText')}" /></div>`
         : `<div class="img-placeholder">📷 [${t('needsDesktop')} · ${t('shotStatusPending')}]</div>`;
 
       return `
@@ -297,7 +304,7 @@ export class ChatApp {
         <div class="msg" data-msg-agent="Gp">
           <div class="ava a-gpt lg">Gp</div>
           <div>
-            <div class="who"><b>ChatGPT</b> · 分镜师</div>
+            <div class="who"><b>ChatGPT</b> · ${curLocale === 'zh-CN' ? '分镜师' : 'Storyboard Artist'}</div>
             <div class="bubble">
               分镜大纲已理清，雨夜便利店的三连镜结构如下：
               ${renderShotCardHtml(shots[0])}
@@ -311,7 +318,7 @@ export class ChatApp {
       mainMessagesHtml = `
         <div class="comfy-action-bar" style="background:#FFFDF8;border:1px solid #E3DCCB;border-radius:11px;padding:11px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
           <div style="font-size:12.5px;color:#1C1A17;">
-            🎨 <b>ComfyUI 诊断工作台</b>：提交工作流 JSON 进行执行诊断与节点报错排查
+            🎨 <b>${t('comfyWorkbenchTitle')}</b>: ${t('comfyWorkbenchDesc')}
           </div>
           <button class="send" id="btn-submit-workflow" style="padding:6px 14px;font-size:12px;border-radius:8px;">
             ${t('comfySubmitWorkflow')}
@@ -417,6 +424,9 @@ export class ChatApp {
       `;
     }
 
+    // 输入框占位符根据模式切换动态联动
+    const currentInputPlaceholder = this.isBroadcastMode ? t('inputPlaceholder') : t('inputPlaceholderMention');
+
     this.container.innerHTML = `
       <div class="app">
         <!-- 顶栏：54px -->
@@ -424,8 +434,8 @@ export class ChatApp {
           <div class="logo">Take<span>Chat</span></div>
           <div class="rt" id="topbar-room-name">${roomTitle}</div>
           <div class="sp"></div>
-          <button class="tbtn" id="btn-lang" title="切换双语">${otherLocale}</button>
-          <button class="tbtn" id="btn-settings" title="打开设置">⚙</button>
+          <button class="tbtn" id="btn-lang" title="${t('titleToggleLang')}">${otherLocale}</button>
+          <button class="tbtn" id="btn-settings" title="${t('titleOpenSettings')}">⚙</button>
         </div>
 
         <!-- 主体：三栏并排，高度 600px -->
@@ -477,7 +487,8 @@ export class ChatApp {
 
             <div class="composer">
               <span class="mode-toggle" id="btn-mode-toggle">${this.isBroadcastMode ? t('modeAllReply') : t('modeMentionOne')}</span>
-              <input class="box" id="chat-input" placeholder="${t('inputPlaceholder')}" />
+              <input class="box" id="chat-input" placeholder="${currentInputPlaceholder}" />
+
               <button class="send" id="btn-send">${t('sendBtn')}</button>
             </div>
           </section>
@@ -509,7 +520,6 @@ export class ChatApp {
 
     // 房间切换事件
     this.container.querySelectorAll('.rail .item[data-room]').forEach((roomEl) => {
-
       roomEl.addEventListener('click', () => {
         const roomId = roomEl.getAttribute('data-room');
         if (roomId && roomId !== this.currentRoomId) {
@@ -544,7 +554,7 @@ export class ChatApp {
 
         // 桌面端执行 ComfyUI 出图
         btn.disabled = true;
-        btn.textContent = '出图中…';
+        btn.textContent = t('renderingShot');
         try {
           const adapter = new ComfyUiAdapter();
           const shot = this.storyboard.getShot(shotNum);
@@ -557,12 +567,12 @@ export class ChatApp {
             this.render();
             this.bindEvents();
           } else {
-            alert(`出图失败: ${result.rawError || '未知错误'}`);
+            alert(`${t('renderFailed')}: ${result.rawError || t('unknownError')}`);
             btn.disabled = false;
             btn.textContent = t('btnRenderShot');
           }
         } catch (err) {
-          alert(`出图异常: ${err instanceof Error ? err.message : String(err)}`);
+          alert(`${t('renderError')}: ${err instanceof Error ? err.message : String(err)}`);
           btn.disabled = false;
           btn.textContent = t('btnRenderShot');
         }
@@ -600,12 +610,15 @@ export class ChatApp {
     langBtn?.addEventListener('click', () => {
       const nextLocale: Locale = getLocale() === 'zh-CN' ? 'en-US' : 'zh-CN';
       setLocale(nextLocale);
+      if (typeof document !== 'undefined') {
+        document.title = nextLocale === 'zh-CN' ? 'TakeChat · 多智能体协作群聊' : 'TakeChat · Multi-Agent Group Chat';
+      }
       this.render();
       this.bindEvents();
       this.refreshLedgerDisplay();
     });
 
-    // 模式切换
+    // 模式切换与占位符动态联动
     modeBtn?.addEventListener('click', () => {
       this.isBroadcastMode = !this.isBroadcastMode;
       modeBtn.textContent = this.isBroadcastMode ? t('modeAllReply') : t('modeMentionOne');
@@ -615,6 +628,9 @@ export class ChatApp {
       if (chatSub) {
         const subtitleModeText = this.isBroadcastMode ? t('modeTagBroadcast') : t('modeTagMention');
         chatSub.textContent = `${subtitleModeText} · Claude, ChatGPT, Gemini, DeepSeek, Grok Bot ${t('presentSuffix')}`;
+      }
+      if (inputEl) {
+        inputEl.placeholder = this.isBroadcastMode ? t('inputPlaceholder') : t('inputPlaceholderMention');
       }
     });
 
@@ -691,7 +707,7 @@ export class ChatApp {
       agentMsgEl.innerHTML = `
         <div class="ava ${agent.avatarClass} lg think" data-av="${agentId}">${agent.shortName}</div>
         <div>
-          <div class="who"><b>${agent.name}</b> · ${agent.systemPrompt} <span class="thinklbl">思考中…</span></div>
+          <div class="who"><b>${agent.name}</b> · ${getLocale() === 'zh-CN' ? agent.roleZh : agent.roleEn} <span class="thinklbl">${t('statusThinking')}…</span></div>
           <div class="bubble" id="bub-${agentId}-${turnIndex}"></div>
         </div>
       `;
@@ -706,7 +722,9 @@ export class ChatApp {
       );
 
       await new Promise((r) => setTimeout(r, 450));
-      const simulatedText = `针对「${prompt.slice(0, 15)}...」，已基于前序讨论完成处理方案输出。`;
+      const simulatedText = getLocale() === 'zh-CN'
+        ? `针对「${prompt.slice(0, 15)}...」，已基于前序讨论完成处理方案输出。`
+        : `Regarding "${prompt.slice(0, 15)}...", processing plan output has been generated based on prior discussion.`;
       for (let i = 0; i < simulatedText.length; i += 3) {
         const chunk = simulatedText.slice(i, i + 3);
         this.engine.notifyChunk(this.session.id, turnIndex, agentId, chunk);
