@@ -1,6 +1,6 @@
 /**
- * @take/ui - i18n/index.ts
- * 中英双语国际化字典与语言切换系统（默认跟随系统 navigator.language）
+ * @take/ui - i18n/index.ts (工单 07 扩充版)
+ * 中英双语国际化字典：覆盖全界面文案、设置区、联调自检与浏览器本地 Key 安全提示
  */
 
 export type Locale = 'zh-CN' | 'en-US';
@@ -35,6 +35,13 @@ export interface TranslationDict {
   btnApprove: string;
   btnRetry: string;
   you: string;
+  testConn: string;
+  testingConn: string;
+  connSuccess: string;
+  connFailed: string;
+  connRateLimited: string;
+  browserKeyWarning: string;
+  saveConfig: string;
 }
 
 export const DICTIONARIES: Record<Locale, TranslationDict> = {
@@ -68,6 +75,13 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     btnApprove: '就按这个开拍',
     btnRetry: '分镜再改一版',
     you: '你',
+    testConn: '测试连接',
+    testingConn: '测试中…',
+    connSuccess: '连通成功',
+    connFailed: '连接失败',
+    connRateLimited: '触发 429 速率限制',
+    browserKeyWarning: 'Key 只存于本浏览器本地存储，请勿在公共或他人设备上使用',
+    saveConfig: '保存配置',
   },
   'en-US': {
     brandTitle: 'TakeChat',
@@ -99,12 +113,18 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     btnApprove: 'Approve & Produce',
     btnRetry: 'Revise Storyboard',
     you: 'You',
+    testConn: 'Test Connection',
+    testingConn: 'Testing…',
+    connSuccess: 'Connected Successfully',
+    connFailed: 'Connection Failed',
+    connRateLimited: 'Rate Limit Exceeded',
+    browserKeyWarning: 'API Keys are stored exclusively in your local browser storage. Do not use on public or shared devices.',
+    saveConfig: 'Save Settings',
   },
 };
 
 let currentLocale: Locale = 'zh-CN';
 
-// 初始化根据浏览器语言自动侦测
 if (typeof navigator !== 'undefined' && navigator.language) {
   if (navigator.language.toLowerCase().startsWith('en')) {
     currentLocale = 'en-US';
@@ -124,4 +144,3 @@ export function getLocale(): Locale {
 export function t(key: keyof TranslationDict): string {
   return DICTIONARIES[currentLocale][key] || DICTIONARIES['zh-CN'][key] || key;
 }
-
