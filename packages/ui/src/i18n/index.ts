@@ -41,6 +41,8 @@ export interface TranslationDict {
   connFailed: string;
   connRateLimited: string;
   browserKeyWarning: string;
+  needsDesktop: string;
+  needsDesktopNotice: string;
   saveConfig: string;
 }
 
@@ -81,6 +83,8 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     connFailed: '连接失败',
     connRateLimited: '触发 429 速率限制',
     browserKeyWarning: 'Key 只存于本浏览器本地存储，请勿在公共或他人设备上使用',
+    needsDesktop: '需本地版',
+    needsDesktopNotice: '本地 CLI 智能体需要运行 TakeChat 桌面完全版才能拉起本机进程，浏览器沙箱环境不支持本地命令。',
     saveConfig: '保存配置',
   },
   'en-US': {
@@ -119,6 +123,8 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     connFailed: 'Connection Failed',
     connRateLimited: 'Rate Limit Exceeded',
     browserKeyWarning: 'API Keys are stored exclusively in your local browser storage. Do not use on public or shared devices.',
+    needsDesktop: 'Desktop Only',
+    needsDesktopNotice: 'Local CLI agents require the TakeChat Desktop native edition to spawn local processes. Browser sandbox environments cannot execute local commands.',
     saveConfig: 'Save Settings',
   },
 };
