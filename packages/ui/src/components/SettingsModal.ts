@@ -1,9 +1,9 @@
 /**
  * @take/ui - SettingsModal.ts
- * 设置面板组件（工单 12 密度降噪与纯粹双语抛光版）
+ * 设置面板组件（工单 13 双语清零与单徽章收口版）
  * 核心优化：
- * 1. 未配置厂商默认收起为单行摘要与「+ 添加 Key」按钮，配置过的才展开输入框与测试连接；
- * 2. 彻底清除中英夹杂，ComfyUI 提示与全量文案严格按 i18n 抽表；
+ * 1. 彻底清除横幅与状态字面量硬编码中文，改走 t() 词条（桌面钥匙串/本地存储/已登记/未测试/预警）；
+ * 2. 徽章收口：同一行同一时刻只亮最高优先级一枚（桌面版显示「已登记」、浏览器版显示「桌面版可用」导向短标，二选一杜绝重复堆叠）；
  * 3. 严格遵循错误文本安全空值守卫与 textContent 防注入渲染。
  */
 
@@ -38,13 +38,13 @@ export class SettingsModal {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
 
-    // 针对浏览器环境的安全警示（克制为单行）
+    // 针对浏览器与桌面环境的合规安全警示（文案全部走 i18n 词条）
     const securityNotice = this.options.isDesktop
       ? `<div style="background:#F3EFE6;border:1px solid #E3DCCB;padding:8px 12px;border-radius:8px;font-size:12px;color:#57524A;margin-bottom:12px;">
-           🔒 <b>桌面端钥匙串保护</b>：API Key 经系统钥匙串硬件级隔离加密保存。
+           🔒 <b>${t('desktopVaultLabel')}</b>
          </div>`
       : `<div style="background:#FDF0EC;border:1px solid #E8B4A8;padding:8px 12px;border-radius:8px;font-size:12px;color:#C8402A;margin-bottom:12px;">
-           ⚠️ <b>本地存储警示</b>：${t('browserKeyWarning')}
+           ⚠️ <b>${t('browserStorageLabel')}</b>: ${t('browserKeyWarning')}
          </div>`;
 
     // 1. 生成厂商列表行（未配置默认收起，配置过的默认展开）
@@ -79,6 +79,11 @@ export class SettingsModal {
     // 2. 本地工具与 ComfyUI 配置
     const savedComfyUrl = ComfyUiAdapter.getSavedEndpoint() || DEFAULT_COMFYUI_URL;
 
+    // 本地工具行徽章收口：同一行同一时刻严格只亮最高优先级一枚（桌面版「已登记」与浏览器版「桌面版可用」二选一）
+    const claudeCodeBadgeHtml = this.options.isDesktop
+      ? `<div class="st ok" style="text-align:right;">${t('statusRegistered')}</div>`
+      : `<div class="st none" style="text-align:right;"><span class="badge">${t('needsDesktop')}</span></div>`;
+
     // 3. 账本警戒线
     const limits = this.options.ledger?.getLimits() || { sessionLimitUsd: 2.0, monthlyLimitUsd: 20.0 };
 
@@ -104,13 +109,12 @@ export class SettingsModal {
             <div class="vrow">
               <div class="vn">Claude Code</div>
               <div class="key" style="color:#7A7368;font-size:12px;background:#FAF7F0;">stdio JSON-RPC · acp-claude</div>
-              <div class="st ${this.options.isDesktop ? 'ok' : 'none'}">${this.options.isDesktop ? '✓ 本地可用' : t('needsDesktop')}</div>
-              <button class="tb" disabled style="opacity:0.6">已登记</button>
+              ${claudeCodeBadgeHtml}
             </div>
             <div class="vrow">
               <div class="vn">ComfyUI</div>
               <input type="text" class="key" id="comfyui-endpoint-input" value="${savedComfyUrl}" placeholder="http://127.0.0.1:8188" />
-              <div class="st none" id="comfyui-status">未测试</div>
+              <div class="st none" id="comfyui-status">${t('statusUntested')}</div>
               <button class="tb" id="btn-test-comfyui">${t('testConn')}</button>
             </div>
             <div style="font-size:11.5px;color:#7A7368;padding:6px 4px;line-height:1.6;">
@@ -123,12 +127,12 @@ export class SettingsModal {
             <div class="vrow">
               <div class="vn">${t('sessionLimitLabel')}</div>
               <input type="number" step="0.5" min="0.1" class="key" id="session-limit-input" value="${limits.sessionLimitUsd}" />
-              <div class="st none" id="session-limit-tip">预警: $${limits.sessionLimitUsd}</div>
+              <div class="st none" id="session-limit-tip">${t('alertPrefix')}: $${limits.sessionLimitUsd}</div>
             </div>
             <div class="vrow">
               <div class="vn">${t('monthlyLimitLabel')}</div>
               <input type="number" step="1.0" min="1.0" class="key" id="monthly-limit-input" value="${limits.monthlyLimitUsd}" />
-              <div class="st none" id="monthly-limit-tip">预警: $${limits.monthlyLimitUsd}</div>
+              <div class="st none" id="monthly-limit-tip">${t('alertPrefix')}: $${limits.monthlyLimitUsd}</div>
             </div>
             <div style="font-size:12px;color:#57524A;padding:8px 4px;line-height:1.6;">
               ${t('ledgerTip')}
@@ -223,7 +227,7 @@ export class SettingsModal {
         this.options.ledger.setLimits({ sessionLimitUsd: sVal, monthlyLimitUsd: mVal });
       }
 
-      alert('所有配置已成功保存！');
+      alert(t('saveConfig'));
       this.close();
     });
 
@@ -242,7 +246,7 @@ export class SettingsModal {
         btn.disabled = true;
         btn.textContent = t('testingConn');
         statusEl.className = 'st none';
-        statusEl.textContent = '测试中…';
+        statusEl.textContent = t('testingConn');
 
         const result: ConnectionTestResult = await ConnectionTester.testConnection(provider, currentKey);
 
@@ -251,14 +255,14 @@ export class SettingsModal {
 
         if (result.success) {
           statusEl.className = 'st ok';
-          statusEl.textContent = `✓ 已连接 · ${result.latencyMs}ms`;
+          statusEl.textContent = `✓ ${t('connSuccess')} · ${result.latencyMs}ms`;
         } else {
           statusEl.className = 'st err';
           if (result.isRateLimit) {
-            statusEl.textContent = `✗ 429 限制 (${result.retryAfterSeconds || 2}s)`;
+            statusEl.textContent = `✗ 429 (${result.retryAfterSeconds || 2}s)`;
           } else {
-            const errStr = result.errorMessage || '未知错误';
-            statusEl.textContent = `✗ 失败 · ${errStr.slice(0, 24)}`;
+            const errStr = result.errorMessage || t('connFailed');
+            statusEl.textContent = `✗ ${t('connFailed')} · ${errStr.slice(0, 24)}`;
           }
         }
       });
@@ -278,7 +282,7 @@ export class SettingsModal {
       btnTestComfy.disabled = true;
       btnTestComfy.textContent = t('testingConn');
       comfyStatus.className = 'st none';
-      comfyStatus.textContent = '测试中…';
+      comfyStatus.textContent = t('testingConn');
 
       const result = await adapter.testConnection();
 
@@ -287,11 +291,11 @@ export class SettingsModal {
 
       if (result.success) {
         comfyStatus.className = 'st ok';
-        comfyStatus.textContent = `✓ 已连接 · ${result.latencyMs}ms (${result.version || 'v0.3+'})`;
+        comfyStatus.textContent = `✓ ${t('connSuccess')} · ${result.latencyMs}ms (${result.version || 'v0.3+'})`;
       } else {
         comfyStatus.className = 'st err';
-        const errStr = result.errorMessage || '连接超时';
-        comfyStatus.textContent = `✗ 失败 · ${errStr.slice(0, 24)}`;
+        const errStr = result.errorMessage || t('connFailed');
+        comfyStatus.textContent = `✗ ${t('connFailed')} · ${errStr.slice(0, 24)}`;
       }
     });
   }
