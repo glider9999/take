@@ -44,6 +44,27 @@ export interface TranslationDict {
   needsDesktop: string;
   needsDesktopNotice: string;
   saveConfig: string;
+  statusThinking: string;
+  statusReady: string;
+  statusSpoke: string;
+  cloudAgentsTitle: string;
+  membersTitle: string;
+  localToolsTitle: string;
+  ledgerSession: string;
+  ledgerMonthly: string;
+  comfySubmitWorkflow: string;
+  comfyClinicSheet: string;
+  stepPromptClaude: string;
+  stepWorkflowGrok: string;
+  stepStoryboardChatgpt: string;
+  stepCodeDeepseek: string;
+  stepHostSummary: string;
+  tabProviders: string;
+  tabLocalTools: string;
+  tabLedger: string;
+  comfyEndpointDesc: string;
+  sessionLimitLabel: string;
+  monthlyLimitLabel: string;
 }
 
 export const DICTIONARIES: Record<Locale, TranslationDict> = {
@@ -86,6 +107,27 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     needsDesktop: '需本地版',
     needsDesktopNotice: '本地 CLI 智能体需要运行 TakeChat 桌面完全版才能拉起本机进程，浏览器沙箱环境不支持本地命令。',
     saveConfig: '保存配置',
+    statusThinking: '思考中',
+    statusReady: '就绪',
+    statusSpoke: '已发言',
+    cloudAgentsTitle: '云端智能体',
+    membersTitle: '成员',
+    localToolsTitle: '本地工具',
+    ledgerSession: '本会话',
+    ledgerMonthly: '本月',
+    comfySubmitWorkflow: '提交工作流',
+    comfyClinicSheet: 'ComfyUI 报错会诊单',
+    stepPromptClaude: '提示词（Claude）',
+    stepWorkflowGrok: '工作流（Grok）',
+    stepStoryboardChatgpt: '分镜（ChatGPT）',
+    stepCodeDeepseek: '代码（DeepSeek）',
+    stepHostSummary: '主持人汇总',
+    tabProviders: '供应商',
+    tabLocalTools: '本地工具',
+    tabLedger: '账本',
+    comfyEndpointDesc: 'ComfyUI 服务地址',
+    sessionLimitLabel: '单会话限额',
+    monthlyLimitLabel: '每月限额',
   },
   'en-US': {
     brandTitle: 'TakeChat',
@@ -126,6 +168,27 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     needsDesktop: 'Desktop Only',
     needsDesktopNotice: 'Local CLI agents require the TakeChat Desktop native edition to spawn local processes. Browser sandbox environments cannot execute local commands.',
     saveConfig: 'Save Settings',
+    statusThinking: 'Thinking',
+    statusReady: 'Ready',
+    statusSpoke: 'Spoke',
+    cloudAgentsTitle: 'Cloud Agents',
+    membersTitle: 'Members',
+    localToolsTitle: 'Local Tools',
+    ledgerSession: 'This session',
+    ledgerMonthly: 'This month',
+    comfySubmitWorkflow: 'Submit Workflow',
+    comfyClinicSheet: 'ComfyUI Error Clinic Sheet',
+    stepPromptClaude: 'Prompt (Claude)',
+    stepWorkflowGrok: 'Workflow (Grok)',
+    stepStoryboardChatgpt: 'Storyboard (ChatGPT)',
+    stepCodeDeepseek: 'Code (DeepSeek)',
+    stepHostSummary: 'Host Summary',
+    tabProviders: 'Providers',
+    tabLocalTools: 'Local Tools',
+    tabLedger: 'Ledger',
+    comfyEndpointDesc: 'ComfyUI endpoint',
+    sessionLimitLabel: 'Session limit',
+    monthlyLimitLabel: 'Monthly limit',
   },
 };
 
