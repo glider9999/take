@@ -40,7 +40,11 @@ pnpm install
 pnpm -r build
 ```
 
-### 启动本地开发服务
+> ⚠️ **关键开发构建前置依赖说明**：  
+> 从干净代码仓库初次检出后，**必须先执行 `pnpm -r build`**（编译生成 `@take/engine`、`@take/adapters`、`@take/tools` 的 `dist/` 构建物），**然后再执行 `pnpm test`**。  
+> 因为应用包与测试均通过 workspace 依赖核心包编译后的导出产物，若跳过 build 直接跑测试，会因未生成 `dist/` 而误报无法解析导入。
+
+### 启动本地开发服务与运行测试
 - **启动浏览器 Web 版**：
   ```bash
   pnpm --filter @take/web dev
@@ -50,7 +54,7 @@ pnpm -r build
   ```bash
   pnpm --filter @take/desktop tauri dev
   ```
-- **运行自动化单元测试套件**：
+- **运行全量自动化单元测试套件（须先完成 pnpm -r build）**：
   ```bash
   pnpm test
   ```
