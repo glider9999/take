@@ -1,6 +1,6 @@
 /**
- * @take/ui - i18n/index.ts (工单 13 抛光补丁单双语终版)
- * 中英双语国际化字典：界面模板所有标签/状态/徽章/占位/提示彻底清零写死中文
+ * @take/ui - i18n/index.ts (工单 14 微修单双语终版)
+ * 中英双语国际化字典：界面模板所有标签/状态/徽章/占位/提示/标题/alt/alert 全量抽表清零
  */
 
 export type Locale = 'zh-CN' | 'en-US';
@@ -24,6 +24,7 @@ export interface TranslationDict {
   modeAllReply: string;
   modeMentionOne: string;
   inputPlaceholder: string;
+  inputPlaceholderMention: string;
   sendBtn: string;
   sendingBtn: string;
   progressTitle: string;
@@ -75,6 +76,8 @@ export interface TranslationDict {
   comfyEndpointHint: string;
   comfySubmitWorkflow: string;
   comfyClinicSheet: string;
+  comfyWorkbenchTitle: string;
+  comfyWorkbenchDesc: string;
   sessionLimitLabel: string;
   monthlyLimitLabel: string;
   storyboardTableTitle: string;
@@ -86,6 +89,13 @@ export interface TranslationDict {
   shotStatusFinalized: string;
   btnRenderShot: string;
   btnFinalizeShot: string;
+  renderingShot: string;
+  renderFailed: string;
+  renderError: string;
+  unknownError: string;
+  shotAltText: string;
+  titleToggleLang: string;
+  titleOpenSettings: string;
   emptyTitle: string;
   emptySubtitle: string;
   btnLoadDemo: string;
@@ -115,7 +125,8 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     modeTagMention: '点名某人（仅点名者回复）',
     modeAllReply: '全员会诊',
     modeMentionOne: '点名某人',
-    inputPlaceholder: '发消息（在场模型各答一次），或 @ 某位专家单独问…',
+    inputPlaceholder: '发消息（在场模型将各答一次），或 @ 某位专家单独问…',
+    inputPlaceholderMention: '@ 某位专家单独提问（仅被点名者回复）…',
     sendBtn: '发送',
     sendingBtn: '思考中…',
     progressTitle: '本次会诊进度',
@@ -167,6 +178,8 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     comfyEndpointHint: '服务默认使用本机端口 8188。点击「测试连接」将探测 /system_stats 确认服务在线与版本。',
     comfySubmitWorkflow: '提交工作流 JSON',
     comfyClinicSheet: 'ComfyUI 节点报错会诊单',
+    comfyWorkbenchTitle: 'ComfyUI 诊断工作台',
+    comfyWorkbenchDesc: '提交工作流 JSON 进行执行诊断与节点报错排查',
     sessionLimitLabel: '单次会话警戒线 ($)',
     monthlyLimitLabel: '单月用量警戒线 ($)',
     storyboardTableTitle: '分镜整表汇总',
@@ -178,6 +191,13 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     shotStatusFinalized: '已定稿',
     btnRenderShot: 'ComfyUI 出图',
     btnFinalizeShot: '定稿',
+    renderingShot: '出图中…',
+    renderFailed: '出图失败',
+    renderError: '出图异常',
+    unknownError: '未知错误',
+    shotAltText: '样片',
+    titleToggleLang: '切换语言',
+    titleOpenSettings: '打开设置',
     emptyTitle: '开启多模型协同会诊',
     emptySubtitle: '选择左侧会诊室开启协同讨论，或载入官方《雨夜》短片全流程演示。',
     btnLoadDemo: '🎬 载入演示数据',
@@ -206,6 +226,7 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     modeAllReply: 'All models reply',
     modeMentionOne: 'Mention one',
     inputPlaceholder: 'Type a message (all models will reply once), or @ an agent directly…',
+    inputPlaceholderMention: '@ an agent directly to ask (only mentioned agent will reply)…',
     sendBtn: 'Send',
     sendingBtn: 'Thinking…',
     progressTitle: 'SESSION PROGRESS',
@@ -257,6 +278,8 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     comfyEndpointHint: 'The service defaults to local port 8188. Click "Test Connection" to probe /system_stats for status and version.',
     comfySubmitWorkflow: 'Submit Workflow JSON',
     comfyClinicSheet: 'ComfyUI Node Error Case Sheet',
+    comfyWorkbenchTitle: 'ComfyUI Diagnostics Workbench',
+    comfyWorkbenchDesc: 'Submit workflow JSON for execution diagnostics and node error analysis',
     sessionLimitLabel: 'Session Alert Limit ($)',
     monthlyLimitLabel: 'Monthly Alert Limit ($)',
     storyboardTableTitle: 'Storyboard Table Summary',
@@ -268,6 +291,13 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     shotStatusFinalized: 'Finalized',
     btnRenderShot: 'Render with ComfyUI',
     btnFinalizeShot: 'Finalize',
+    renderingShot: 'Rendering…',
+    renderFailed: 'Render failed',
+    renderError: 'Render error',
+    unknownError: 'Unknown error',
+    shotAltText: 'Sample',
+    titleToggleLang: 'Switch Language',
+    titleOpenSettings: 'Open Settings',
     emptyTitle: 'Start Multi-Agent Consultation',
     emptySubtitle: 'Select a clinic from the left rail, or load the official "Rainy Night" demo session.',
     btnLoadDemo: '🎬 Load Demo Session',
