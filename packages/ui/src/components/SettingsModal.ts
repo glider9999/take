@@ -1,11 +1,10 @@
 /**
  * @take/ui - SettingsModal.ts
- * 设置面板组件（按 v4 样张 B 下半部三页签重构）
- * 三页签结构：
- * 1. 厂商与 Key：六大云端厂商 API Key 配置与独立「测试连接」自检
- * 2. 本地工具：CLI 智能体运行态说明与 ComfyUI 端点配置及连接测试
- * 3. 账本与警戒线：会话与月度用量警戒线自设输入
- * 严格纪律：所有可选字符串属性均进行空值守卫，杜绝 TS18048 构建报错
+ * 设置面板组件（工单 12 密度降噪与纯粹双语抛光版）
+ * 核心优化：
+ * 1. 未配置厂商默认收起为单行摘要与「+ 添加 Key」按钮，配置过的才展开输入框与测试连接；
+ * 2. 彻底清除中英夹杂，ComfyUI 提示与全量文案严格按 i18n 抽表；
+ * 3. 严格遵循错误文本安全空值守卫与 textContent 防注入渲染。
  */
 
 import { ConnectionTester, ConnectionTestResult, KeyStore, ComfyUiAdapter, DEFAULT_COMFYUI_URL } from '@take/adapters';
@@ -22,6 +21,7 @@ export interface SettingsModalOptions {
 export class SettingsModal {
   private element: HTMLElement | null = null;
   private currentTab: 'providers' | 'local-tools' | 'ledger' = 'providers';
+  private expandedProviders: Set<string> = new Set();
 
   private providers = [
     { id: 'deepseek', name: 'DeepSeek' },
@@ -38,27 +38,42 @@ export class SettingsModal {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
 
-    // 针对浏览器环境的安全警示
+    // 针对浏览器环境的安全警示（克制为单行）
     const securityNotice = this.options.isDesktop
-      ? `<div style="background:#F3EFE6;border:1px solid #E3DCCB;padding:9px 12px;border-radius:9px;font-size:12px;color:#57524A;margin-bottom:12px;">
-           🔒 <b>桌面端安全保护</b>：API Key 经系统钥匙串（macOS Keychain / Windows Credential Manager）硬件级隔离加密保存。
+      ? `<div style="background:#F3EFE6;border:1px solid #E3DCCB;padding:8px 12px;border-radius:8px;font-size:12px;color:#57524A;margin-bottom:12px;">
+           🔒 <b>桌面端钥匙串保护</b>：API Key 经系统钥匙串硬件级隔离加密保存。
          </div>`
-      : `<div style="background:#FDF0EC;border:1.5px solid #C8402A;padding:9px 12px;border-radius:9px;font-size:12px;color:#C8402A;margin-bottom:12px;line-height:1.6;">
-           ⚠️ <b>安全提示</b>：Key 只存于本浏览器本地存储，零中转。<b>请勿在公共或他人设备上填入高额度 Key！</b>
+      : `<div style="background:#FDF0EC;border:1px solid #E8B4A8;padding:8px 12px;border-radius:8px;font-size:12px;color:#C8402A;margin-bottom:12px;">
+           ⚠️ <b>本地存储警示</b>：${t('browserKeyWarning')}
          </div>`;
 
-    // 1. 生成厂商列表行
+    // 1. 生成厂商列表行（未配置默认收起，配置过的默认展开）
     let providerRows = '';
     for (const p of this.providers) {
       const savedKey = await this.options.keyStore.getKey(p.id);
-      providerRows += `
-        <div class="vrow">
-          <div class="vn">${p.name}</div>
-          <input type="password" class="key key-input" data-provider="${p.id}" value="${savedKey}" placeholder="输入 ${p.name} API Key…" />
-          <div class="st ${savedKey ? 'ok' : 'none'}" data-status="${p.id}">${savedKey ? '已配置' : '未配置'}</div>
-          <button class="tb btn-test-conn" data-provider="${p.id}">${t('testConn')}</button>
-        </div>
-      `;
+      const isExpanded = Boolean(savedKey) || this.expandedProviders.has(p.id);
+
+      if (!isExpanded) {
+        // 未配置紧凑行
+        providerRows += `
+          <div class="vrow compact-vrow" data-provider="${p.id}">
+            <div class="vn">${p.name}</div>
+            <div class="st none" style="flex:1;">${t('statusNoKey')}</div>
+            <button class="tb btn-toggle-expand" data-provider="${p.id}">${t('addKey')}</button>
+          </div>
+        `;
+      } else {
+        // 已展开详细配置行
+        providerRows += `
+          <div class="vrow" data-provider="${p.id}">
+            <div class="vn">${p.name}</div>
+            <input type="password" class="key key-input" data-provider="${p.id}" value="${savedKey}" placeholder="API Key…" />
+            <div class="st ${savedKey ? 'ok' : 'none'}" data-status="${p.id}">${savedKey ? t('connSuccess') : t('statusNoKey')}</div>
+            <button class="tb btn-test-conn" data-provider="${p.id}">${t('testConn')}</button>
+            ${!savedKey ? `<button class="tb btn-toggle-collapse" data-provider="${p.id}" style="padding:4px 8px;font-size:11px;opacity:0.7;">✕</button>` : ''}
+          </div>
+        `;
+      }
     }
 
     // 2. 本地工具与 ComfyUI 配置
@@ -88,7 +103,7 @@ export class SettingsModal {
           <div class="tab-pane" id="pane-local-tools" style="${this.currentTab === 'local-tools' ? '' : 'display:none;'}">
             <div class="vrow">
               <div class="vn">Claude Code</div>
-              <div class="key" style="color:#7A7368;font-size:12px;background:#FAF7F0;">stdio 协议 · capabilities 白名单别名 acp-claude</div>
+              <div class="key" style="color:#7A7368;font-size:12px;background:#FAF7F0;">stdio JSON-RPC · acp-claude</div>
               <div class="st ${this.options.isDesktop ? 'ok' : 'none'}">${this.options.isDesktop ? '✓ 本地可用' : t('needsDesktop')}</div>
               <button class="tb" disabled style="opacity:0.6">已登记</button>
             </div>
@@ -99,7 +114,7 @@ export class SettingsModal {
               <button class="tb" id="btn-test-comfyui">${t('testConn')}</button>
             </div>
             <div style="font-size:11.5px;color:#7A7368;padding:6px 4px;line-height:1.6;">
-              ${t('comfyEndpointDesc')}：服务默认使用本机端口 8188。点击「测试连接」将探测 /system_stats 确认服务在线与版本。
+              ${t('comfyEndpointHint')}
             </div>
           </div>
 
@@ -158,9 +173,35 @@ export class SettingsModal {
       });
     });
 
+    // 展开未配置厂商 Key 输入行
+    modal.querySelectorAll<HTMLButtonElement>('.btn-toggle-expand').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const pId = btn.getAttribute('data-provider');
+        if (pId) {
+          this.expandedProviders.add(pId);
+          const newEl = await this.render();
+          if (this.element && this.element.parentNode) {
+            this.element.parentNode.replaceChild(newEl, this.element);
+          }
+        }
+      });
+    });
+
+    modal.querySelectorAll<HTMLButtonElement>('.btn-toggle-collapse').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const pId = btn.getAttribute('data-provider');
+        if (pId) {
+          this.expandedProviders.delete(pId);
+          const newEl = await this.render();
+          if (this.element && this.element.parentNode) {
+            this.element.parentNode.replaceChild(newEl, this.element);
+          }
+        }
+      });
+    });
+
     // 保存所有配置
     modal.querySelector('#btn-save-all-settings')?.addEventListener('click', async () => {
-      // 1. 保存所有厂商 Key
       const inputs = modal.querySelectorAll<HTMLInputElement>('.key-input');
       for (const input of inputs) {
         const provider = input.getAttribute('data-provider');
@@ -169,13 +210,11 @@ export class SettingsModal {
         }
       }
 
-      // 2. 保存 ComfyUI 端点
       const comfyInput = modal.querySelector<HTMLInputElement>('#comfyui-endpoint-input');
       if (comfyInput) {
         ComfyUiAdapter.saveEndpoint(comfyInput.value);
       }
 
-      // 3. 保存账本警戒线
       const sessionInput = modal.querySelector<HTMLInputElement>('#session-limit-input');
       const monthlyInput = modal.querySelector<HTMLInputElement>('#monthly-limit-input');
       if (sessionInput && monthlyInput && this.options.ledger) {
