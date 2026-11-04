@@ -37,7 +37,7 @@ jobs:
 
       - name: NPM License Compliance Check
         run: |
-          pnpm dlx license-checker --production --onlyAllow "MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC;0BSD;CC0-1.0"
+          pnpm dlx license-checker --production --excludePrivatePackages --onlyAllow "MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC;0BSD;CC0-1.0"
 
       - name: Rust License Audit (cargo-deny)
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -89,10 +89,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Topological Build for Web
-        run: |
-          pnpm --filter @take/engine build
-          pnpm --filter @take/ui build
-          pnpm --filter @take/web build
+        run: pnpm --filter @take/web... build
 
   # 4. 桌面完全版编译冒烟 (Tauri Desktop Smoke on macOS, Windows, Linux)
   smoke-desktop:
@@ -125,8 +122,7 @@ jobs:
 
       - name: Build UI Packages Before Tauri
         run: |
-          pnpm --filter @take/engine build
-          pnpm --filter @take/ui build
+          pnpm --filter @take/ui... build
           pnpm --filter @take/desktop build:ui
 
       - name: Setup Rust Toolchain
