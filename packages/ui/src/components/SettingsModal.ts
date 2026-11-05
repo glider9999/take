@@ -1,10 +1,14 @@
 /**
- * @take/ui - SettingsModal.ts
- * 设置面板组件（工单 13 双语清零与单徽章收口版）
- * 核心优化：
- * 1. 彻底清除横幅与状态字面量硬编码中文，改走 t() 词条（桌面钥匙串/本地存储/已登记/未测试/预警）；
- * 2. 徽章收口：同一行同一时刻只亮最高优先级一枚（桌面版显示「已登记」、浏览器版显示「桌面版可用」导向短标，二选一杜绝重复堆叠）；
- * 3. 严格遵循错误文本安全空值守卫与 textContent 防注入渲染。
+ * @take/ui - settings-modal.ts
+ * 工单 17 设置弹窗交互修复版
+ * 
+ * 核心修复项：
+ * 1. 元素生命周期解耦：
+ *    - render() 只负责组装并返回纯净的 HTMLElement，绝不在内部改写挂载引用；
+ *    - 展开/收起/重渲染时显式保存旧挂载元素 (oldEl = this.mountedElement)，生成新元素后通过 oldEl.parentNode.replaceChild(newEl, oldEl) 精准换入；
+ *    - 确保 this.mountedElement 始终与当前驻留在真实 DOM 中的元素保持强引用一致；
+ *    - close() 严格寻找并移除真实挂载的 this.mountedElement，彻底根除孤儿 DOM 与无法关闭的缺陷。
+ * 2. 保持对中英双语 i18n、各厂商 Key 管理、ComfyUI 端点配置与警戒线设置的原生支持。
  */
 
 import { ConnectionTester, ConnectionTestResult, KeyStore, ComfyUiAdapter, DEFAULT_COMFYUI_URL } from '@take/adapters';
@@ -19,7 +23,7 @@ export interface SettingsModalOptions {
 }
 
 export class SettingsModal {
-  private element: HTMLElement | null = null;
+  private mountedElement: HTMLElement | null = null;
   private currentTab: 'providers' | 'local-tools' | 'ledger' = 'providers';
   private expandedProviders: Set<string> = new Set();
 
@@ -34,11 +38,22 @@ export class SettingsModal {
 
   constructor(private options: SettingsModalOptions) {}
 
+  public getElement(): HTMLElement | null {
+    return this.mountedElement;
+  }
+
+  public setMountedElement(el: HTMLElement | null): void {
+    this.mountedElement = el;
+  }
+
+  /**
+   * 生成并返回弹窗 DOM 结构
+   * 遵循无副作用原则：不修改 this.mountedElement
+   */
   public async render(): Promise<HTMLElement> {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
 
-    // 针对浏览器与桌面环境的合规安全警示（文案全部走 i18n 词条）
     const securityNotice = this.options.isDesktop
       ? `<div style="background:#F3EFE6;border:1px solid #E3DCCB;padding:8px 12px;border-radius:8px;font-size:12px;color:#57524A;margin-bottom:12px;">
            🔒 <b>${t('desktopVaultLabel')}</b>
@@ -47,7 +62,7 @@ export class SettingsModal {
            ⚠️ <b>${t('browserStorageLabel')}</b>: ${t('browserKeyWarning')}
          </div>`;
 
-    // 1. 生成厂商列表行（未配置默认收起，配置过的默认展开）
+    // 1. 生成厂商列表行
     let providerRows = '';
     for (const p of this.providers) {
       const savedKey = await this.options.keyStore.getKey(p.id);
@@ -67,7 +82,7 @@ export class SettingsModal {
         providerRows += `
           <div class="vrow" data-provider="${p.id}">
             <div class="vn">${p.name}</div>
-            <input type="password" class="key key-input" data-provider="${p.id}" value="${savedKey}" placeholder="API Key…" />
+            <input type="password" class="key key-input" data-provider="${p.id}" value="${savedKey || ''}" placeholder="API Key…" />
             <div class="st ${savedKey ? 'ok' : 'none'}" data-status="${p.id}">${savedKey ? t('connSuccess') : t('statusNoKey')}</div>
             <button class="tb btn-test-conn" data-provider="${p.id}">${t('testConn')}</button>
             ${!savedKey ? `<button class="tb btn-toggle-collapse" data-provider="${p.id}" style="padding:4px 8px;font-size:11px;opacity:0.7;">✕</button>` : ''}
@@ -78,8 +93,6 @@ export class SettingsModal {
 
     // 2. 本地工具与 ComfyUI 配置
     const savedComfyUrl = ComfyUiAdapter.getSavedEndpoint() || DEFAULT_COMFYUI_URL;
-
-    // 本地工具行徽章收口：同一行同一时刻严格只亮最高优先级一枚（桌面版「已登记」与浏览器版「桌面版可用」二选一）
     const claudeCodeBadgeHtml = this.options.isDesktop
       ? `<div class="st ok" style="text-align:right;">${t('statusRegistered')}</div>`
       : `<div class="st none" style="text-align:right;"><span class="badge">${t('needsDesktop')}</span></div>`;
@@ -146,18 +159,30 @@ export class SettingsModal {
       </div>
     `;
 
-    this.element = backdrop;
     this.bindEvents(backdrop);
     return backdrop;
   }
 
+  /**
+   * 局部安全重渲染并换入真实 DOM
+   */
+  private async safeReRender(): Promise<void> {
+    const oldElement = this.mountedElement;
+    const newElement = await this.render();
+
+    if (oldElement && oldElement.parentNode) {
+      oldElement.parentNode.replaceChild(newElement, oldElement);
+    }
+    this.mountedElement = newElement;
+  }
+
   private bindEvents(modal: HTMLElement): void {
-    // 关闭弹窗
+    // 1. 关闭弹窗
     modal.querySelector('#btn-close-modal')?.addEventListener('click', () => {
       this.close();
     });
 
-    // 页签切换
+    // 2. 页签切换
     modal.querySelectorAll('.tab[data-tab]').forEach((tabEl) => {
       tabEl.addEventListener('click', () => {
         const tabKey = tabEl.getAttribute('data-tab') as 'providers' | 'local-tools' | 'ledger';
@@ -177,34 +202,29 @@ export class SettingsModal {
       });
     });
 
-    // 展开未配置厂商 Key 输入行
+    // 3. 展开未配置厂商 Key 输入行
     modal.querySelectorAll<HTMLButtonElement>('.btn-toggle-expand').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const pId = btn.getAttribute('data-provider');
         if (pId) {
           this.expandedProviders.add(pId);
-          const newEl = await this.render();
-          if (this.element && this.element.parentNode) {
-            this.element.parentNode.replaceChild(newEl, this.element);
-          }
+          await this.safeReRender();
         }
       });
     });
 
+    // 4. 收起厂商输入行
     modal.querySelectorAll<HTMLButtonElement>('.btn-toggle-collapse').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const pId = btn.getAttribute('data-provider');
         if (pId) {
           this.expandedProviders.delete(pId);
-          const newEl = await this.render();
-          if (this.element && this.element.parentNode) {
-            this.element.parentNode.replaceChild(newEl, this.element);
-          }
+          await this.safeReRender();
         }
       });
     });
 
-    // 保存所有配置
+    // 5. 保存所有配置
     modal.querySelector('#btn-save-all-settings')?.addEventListener('click', async () => {
       const inputs = modal.querySelectorAll<HTMLInputElement>('.key-input');
       for (const input of inputs) {
@@ -227,11 +247,10 @@ export class SettingsModal {
         this.options.ledger.setLimits({ sessionLimitUsd: sVal, monthlyLimitUsd: mVal });
       }
 
-      alert(t('saveConfig'));
       this.close();
     });
 
-    // 六家厂商「测试连接」
+    // 6. 六家厂商「测试连接」
     modal.querySelectorAll<HTMLButtonElement>('.btn-test-conn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const provider = btn.getAttribute('data-provider');
@@ -268,7 +287,7 @@ export class SettingsModal {
       });
     });
 
-    // ComfyUI 「测试连接」
+    // 7. ComfyUI 「测试连接」
     const btnTestComfy = modal.querySelector<HTMLButtonElement>('#btn-test-comfyui');
     const comfyInput = modal.querySelector<HTMLInputElement>('#comfyui-endpoint-input');
     const comfyStatus = modal.querySelector<HTMLElement>('#comfyui-status');
@@ -300,10 +319,14 @@ export class SettingsModal {
     });
   }
 
+  /**
+   * 关闭并从真实 DOM 中彻底注销当前挂载元素
+   */
   public close(): void {
-    if (this.element && this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
-      this.element = null;
+    const target = this.mountedElement;
+    if (target && target.parentNode) {
+      target.parentNode.removeChild(target);
+      this.mountedElement = null;
     }
     this.options.onClose();
   }

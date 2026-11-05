@@ -741,6 +741,7 @@ export class ChatApp {
       });
       const modalEl = await this.activeModal.render();
       document.body.appendChild(modalEl);
+      this.activeModal.setMountedElement(modalEl);
     });
 
     // 切换语言
