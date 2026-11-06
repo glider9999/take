@@ -1,11 +1,9 @@
 /**
- * @take/adapters - connection-tester.ts
- * 六大厂商 API 联调自检器（用于设置面板「测试连接」）
- * 严格纪律：
- * 1. 发送最小请求（ping），耗时精确统计；
- * 2. 失败时完整透传原始错误信息全文，禁止吞没错误；
- * 3. 429 走 RateLimitError 专门透传 isRateLimit 与 retryAfterSeconds；
- * 4. 纯净独立：不进入聊天消息流、不产生账本 usage 记录。
+ * @take/adapters - connection-tester.ts (工单 18 扩容版)
+ * 11 家厂商 API 联调自检器
+ * 涵盖：
+ * 既有 6 家：Anthropic, OpenAI, Google, DeepSeek, Moonshot/Kimi, OpenRouter
+ * 新增 5 家：xAI(Grok), 阿里千问(Qwen), 智谱(GLM), 豆包(Doubao), MiniMax
  */
 
 import { CloudApiAdapter, ModelRegistryEntry, RateLimitError } from './cloud-api-adapter.js';
@@ -20,7 +18,7 @@ export interface ConnectionTestResult {
   retryAfterSeconds?: number;
 }
 
-// 六大厂商联调自检默认最小模型探针定义（读取自注册表标准口径）
+// 11 家厂商联调自检默认最小模型探针定义
 export const DEFAULT_PROBE_MODELS: Record<string, ModelRegistryEntry> = {
   anthropic: {
     id: 'claude-3-7-sonnet',
@@ -84,16 +82,60 @@ export const DEFAULT_PROBE_MODELS: Record<string, ModelRegistryEntry> = {
       'X-Title': 'Take Client Test',
     },
   },
+  // --- 工单 18 新增 5 家 ---
+  xai: {
+    id: 'grok-3-mini',
+    name: 'Grok 3 Mini',
+    provider: 'xai',
+    driverType: 'cloud_api',
+    defaultBaseUrl: 'https://api.x.ai/v1',
+    contextWindow: 131072,
+    supportsStreaming: true,
+  },
+  qwen: {
+    id: 'qwen-turbo',
+    name: 'Qwen Turbo',
+    provider: 'qwen',
+    driverType: 'cloud_api',
+    defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    contextWindow: 131072,
+    supportsStreaming: true,
+  },
+  zhipu: {
+    id: 'glm-4-flash',
+    name: 'GLM-4 Flash',
+    provider: 'zhipu',
+    driverType: 'cloud_api',
+    defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    contextWindow: 128000,
+    supportsStreaming: true,
+  },
+  doubao: {
+    id: 'doubao-lite-128k',
+    name: 'Doubao Lite 128k',
+    provider: 'doubao',
+    driverType: 'cloud_api',
+    defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    contextWindow: 128000,
+    supportsStreaming: true,
+  },
+  minimax: {
+    id: 'MiniMax-Text-01',
+    name: 'MiniMax Text 01',
+    provider: 'minimax',
+    driverType: 'cloud_api',
+    defaultBaseUrl: 'https://api.minimax.io/v1',
+    contextWindow: 1000000,
+    supportsStreaming: true,
+  },
 };
 
 export class ConnectionTester {
-  /**
-   * 测试指定厂商的 API 连接可用性
-   */
   public static async testConnection(
     provider: string,
     apiKey: string,
-    customBaseUrl?: string
+    customBaseUrl?: string,
+    customModelId?: string
   ): Promise<ConnectionTestResult> {
     const probeModel = DEFAULT_PROBE_MODELS[provider];
     if (!probeModel) {
@@ -109,15 +151,19 @@ export class ConnectionTester {
     if (!apiKey || apiKey.trim() === '') {
       return {
         provider,
-        modelId: probeModel.id,
+        modelId: customModelId || probeModel.id,
         success: false,
         latencyMs: 0,
         errorMessage: '未配置 API Key，请先输入密钥',
       };
     }
 
-    const adapter = new CloudApiAdapter(probeModel, apiKey.trim(), customBaseUrl);
-    const startTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const actualModelEntry: ModelRegistryEntry = customModelId
+      ? { ...probeModel, id: customModelId.trim() }
+      : probeModel;
+
+    const adapter = new CloudApiAdapter(actualModelEntry, apiKey.trim(), customBaseUrl);
+    const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     return new Promise<ConnectionTestResult>((resolve) => {
       let resolved = false;
@@ -125,13 +171,13 @@ export class ConnectionTester {
       const finish = (result: Partial<ConnectionTestResult>) => {
         if (resolved) return;
         resolved = true;
-        const endTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const latencyMs = Math.round(endTime - startTime);
         adapter.abort();
 
         resolve({
           provider,
-          modelId: probeModel.id,
+          modelId: actualModelEntry.id,
           success: result.success ?? false,
           latencyMs,
           errorMessage: result.errorMessage,
@@ -140,31 +186,31 @@ export class ConnectionTester {
         });
       };
 
-      // 发送最小探测请求 (ping)，不落聊天记录
-      adapter.streamChat([{ role: 'user', content: 'ping' }], {
-        onChunk: () => {
-          // 收到首个流式分片即证明链路畅通、鉴权成功
-          finish({ success: true });
-        },
-        onDone: () => {
-          finish({ success: true });
-        },
-        onError: (err, isRateLimit, retryAfterSeconds) => {
+      adapter
+        .streamChat([{ role: 'user', content: 'ping' }], {
+          onChunk: () => {
+            finish({ success: true });
+          },
+          onDone: () => {
+            finish({ success: true });
+          },
+          onError: (err, isRateLimit, retryAfterSeconds) => {
+            finish({
+              success: false,
+              errorMessage: err.message,
+              isRateLimit: Boolean(isRateLimit),
+              retryAfterSeconds,
+            });
+          },
+        })
+        .catch((err) => {
           finish({
             success: false,
-            errorMessage: err.message,
-            isRateLimit: Boolean(isRateLimit),
-            retryAfterSeconds,
+            errorMessage: err instanceof Error ? err.message : String(err),
           });
-        },
-      }).catch((err) => {
-        finish({
-          success: false,
-          errorMessage: err instanceof Error ? err.message : String(err),
         });
-      });
 
-      // 10 秒硬超时保险
+      // 10 秒硬超时保护
       setTimeout(() => {
         finish({
           success: false,

@@ -1,6 +1,6 @@
 /**
- * @take/ui - i18n/index.ts (工单 16 演示状态同源收尾终版)
- * 中英双语国际化字典：覆盖全界面、各会诊室独立阶段进度、镜头状态列头、人话化模式
+ * @take/ui - i18n/index.ts (工单 18 扩容收口版)
+ * 中英双语国际化字典：覆盖全界面、11 家厂商、删除 Key、新建/删除会话、@ 联想候选层
  */
 
 export type Locale = 'zh-CN' | 'en-US';
@@ -13,6 +13,8 @@ export interface TranslationDict {
   localToolsTitle: string;
   addContact: string;
   addRoom: string;
+  deleteRoom: string;
+  confirmDeleteRoom: string;
   promptClinic: string;
   generalClinic: string;
   comfyFix: string;
@@ -117,6 +119,14 @@ export interface TranslationDict {
   rightRailMembersEmpty: string;
   addKey: string;
   collapseKey: string;
+  deleteKey: string;
+  confirmDeleteKey: string;
+  newChatTitle: string;
+  newChatPromptName: string;
+  defaultNewChatName: string;
+  noConfiguredAgentsTip: string;
+  mentionTipConfigureKey: string;
+  mentionHeader: string;
 }
 
 export const DICTIONARIES: Record<Locale, TranslationDict> = {
@@ -127,7 +137,9 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     cloudAgentsTitle: '云端助手',
     localToolsTitle: '本地工具',
     addContact: '添加联系人',
-    addRoom: '＋ 新建房间',
+    addRoom: '＋ 新建对话',
+    deleteRoom: '删除',
+    confirmDeleteRoom: '确定要删除该对话吗？删除后不可恢复。',
     promptClinic: '提示词会诊',
     generalClinic: '通用会诊室',
     comfyFix: 'ComfyUI 报错会诊',
@@ -163,7 +175,7 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     stepGeneralDecision: '方案拍板 · 用户',
     inProgress: '进行中',
     waitYou: '等你',
-    ledgerTitle: '本地用量账本',
+    ledgerTitle: 'TOKEN LEDGER',
     ledgerTip: '每个专家只答一次；账本只存本机，逼近警戒线只提醒、不锁死。',
     ledgerSession: '本次',
     ledgerMonthly: '本月',
@@ -232,6 +244,14 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     rightRailMembersEmpty: '专家就绪待命，发送首条消息即可激活在场模型。',
     addKey: '+ 添加 Key',
     collapseKey: '收起',
+    deleteKey: '删除 Key',
+    confirmDeleteKey: '确定要清除该厂商的 API Key 吗？',
+    newChatTitle: '新建会话',
+    newChatPromptName: '请输入新对话名称：',
+    defaultNewChatName: '新对话',
+    noConfiguredAgentsTip: '暂无已配置 Key 的专家，可在设置中配置后开始对话。',
+    mentionTipConfigureKey: '先在设置里配置 Key',
+    mentionHeader: '点名专家 (仅被点名者回复)',
   },
   'en-US': {
     brandTitle: 'TakeChat',
@@ -240,7 +260,9 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     cloudAgentsTitle: 'CLOUD AGENTS',
     localToolsTitle: 'LOCAL TOOLS',
     addContact: 'Add Contact',
-    addRoom: '+ New Room',
+    addRoom: '+ New Chat',
+    deleteRoom: 'Delete',
+    confirmDeleteRoom: 'Are you sure you want to delete this chat? This cannot be undone.',
     promptClinic: 'Prompt Clinic',
     generalClinic: 'General Clinic',
     comfyFix: 'ComfyUI Repair',
@@ -345,6 +367,14 @@ export const DICTIONARIES: Record<Locale, TranslationDict> = {
     rightRailMembersEmpty: 'Agents are on standby. Send your first message to activate.',
     addKey: '+ Add Key',
     collapseKey: 'Collapse',
+    deleteKey: 'Delete Key',
+    confirmDeleteKey: 'Are you sure you want to delete this API Key?',
+    newChatTitle: 'New Chat',
+    newChatPromptName: 'Enter chat name:',
+    defaultNewChatName: 'New Chat',
+    noConfiguredAgentsTip: 'No agents with configured keys. Please add keys in Settings.',
+    mentionTipConfigureKey: 'Configure API Key in Settings first',
+    mentionHeader: 'Mention Agent (direct reply only)',
   },
 };
 
