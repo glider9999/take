@@ -1,17 +1,31 @@
 /**
- * @take/adapters - cloud-api-adapter.ts (修复版)
- * 六大厂商云端大模型通用适配器（Anthropic、OpenAI、Gemini、DeepSeek、Moonshot/Kimi、OpenRouter）
- * 修复项：
- * 1. 跨网络分片 SSE 行缓冲区维护（buffer 拼接），彻底消除网络断行丢字问题；
- * 2. 429 错误抛出 RateLimitError 类型化异常，外层 catch 单点精准分发，保留 isRateLimit 与 retryAfter 参数。
+ * @take/adapters - cloud-api-adapter.ts (工单 18 扩容版)
+ * 11 家厂商云端大模型通用适配器
+ * 支持：
+ * - Anthropic (原生 Messages API)
+ * - Google Gemini (Gemini REST/兼容接口)
+ * - OpenAI 兼容标准接口（OpenAI, DeepSeek, Moonshot/Kimi, OpenRouter, xAI/Grok, Qwen/阿里千问, GLM/智谱, Doubao/豆包火山方舟, MiniMax）
  */
 
 import { universalFetch } from './http-client.js';
 
+export type ProviderId =
+  | 'anthropic'
+  | 'openai'
+  | 'google'
+  | 'deepseek'
+  | 'moonshot'
+  | 'openrouter'
+  | 'xai'
+  | 'qwen'
+  | 'zhipu'
+  | 'doubao'
+  | 'minimax';
+
 export interface ModelRegistryEntry {
   id: string;
   name: string;
-  provider: 'anthropic' | 'openai' | 'google' | 'deepseek' | 'moonshot' | 'openrouter';
+  provider: ProviderId;
   driverType: 'cloud_api' | 'local_acp' | 'local_pty';
   defaultBaseUrl?: string;
   contextWindow: number;
@@ -57,9 +71,6 @@ export class CloudApiAdapter {
     }
   }
 
-  /**
-   * 发起多模型流式请求
-   */
   public async streamChat(
     messages: Array<{ role: string; content: string }>,
     callbacks: StreamCallbacks
@@ -79,11 +90,10 @@ export class CloudApiAdapter {
       } else if (this.modelEntry.provider === 'google') {
         await this.streamGoogleGemini(baseUrl, messages, signal, callbacks);
       } else {
-        // OpenAI, DeepSeek, Moonshot, OpenRouter 统一遵循 OpenAI 兼容规范
+        // OpenAI, DeepSeek, Moonshot, OpenRouter, xAI, Qwen, Zhipu, Doubao, MiniMax 统一步调走 OpenAI 兼容协议
         await this.streamOpenAiCompatible(baseUrl, messages, signal, callbacks);
       }
     } catch (err: unknown) {
-      // 核心修复：单点派发错误，不重复覆盖
       if (signal.aborted) {
         callbacks.onError(new Error('请求已被用户主动终止'), false);
       } else if (err instanceof RateLimitError) {
@@ -96,9 +106,6 @@ export class CloudApiAdapter {
     }
   }
 
-  /**
-   * 1. Anthropic 原生协议流式处理
-   */
   private async streamAnthropic(
     baseUrl: string,
     messages: Array<{ role: string; content: string }>,
@@ -136,9 +143,6 @@ export class CloudApiAdapter {
     await this.parseAnthropicSse(response, callbacks);
   }
 
-  /**
-   * 2. OpenAI 兼容流式处理（涵盖 OpenAI, DeepSeek, Kimi, OpenRouter）
-   */
   private async streamOpenAiCompatible(
     baseUrl: string,
     messages: Array<{ role: string; content: string }>,
@@ -168,9 +172,6 @@ export class CloudApiAdapter {
     await this.parseOpenAiSse(response, callbacks);
   }
 
-  /**
-   * 3. Google Gemini 原生与兼容流式处理
-   */
   private async streamGoogleGemini(
     baseUrl: string,
     messages: Array<{ role: string; content: string }>,
@@ -198,9 +199,6 @@ export class CloudApiAdapter {
     await this.parseOpenAiSse(response, callbacks);
   }
 
-  /**
-   * 统一响应状态检查：内部只抛出类型化错误，绝对不调用 callbacks.onError
-   */
   private async handleResponseStatus(response: Response): Promise<void> {
     if (response.ok) return;
 
@@ -214,9 +212,6 @@ export class CloudApiAdapter {
     throw new ApiStatusError(response.status, `API 异常 [HTTP ${response.status}]: ${errText.slice(0, 150)}`);
   }
 
-  /**
-   * 解析 OpenAI 规范的 SSE：带跨分片行缓冲区（buffer）
-   */
   private async parseOpenAiSse(response: Response, callbacks: StreamCallbacks): Promise<void> {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('无法读取响应流数据');
@@ -232,7 +227,6 @@ export class CloudApiAdapter {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      // 核心修复：最后一段未换行字符串弹出留作残行缓冲区
       buffer = lines.pop() || '';
 
       for (const line of lines) {
@@ -245,7 +239,6 @@ export class CloudApiAdapter {
       }
     }
 
-    // 处理流结束时残留在 buffer 的最终行
     if (buffer.trim()) {
       this.processOpenAiSseLine(buffer, (delta) => {
         accumulated += delta;
@@ -284,13 +277,10 @@ export class CloudApiAdapter {
         });
       }
     } catch {
-      // 仅忽略损坏的 JSON 格式
+      // 忽略残损块
     }
   }
 
-  /**
-   * 解析 Anthropic 规范的 SSE：带跨分片行缓冲区（buffer）
-   */
   private async parseAnthropicSse(response: Response, callbacks: StreamCallbacks): Promise<void> {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('无法读取响应流数据');
@@ -352,8 +342,7 @@ export class CloudApiAdapter {
         onUsage({ output: json.usage.output_tokens || 0 });
       }
     } catch {
-      // 容忍非完整 JSON 行
+      // 忽略残损
     }
   }
 }
-
