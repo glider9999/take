@@ -1,9 +1,6 @@
 /**
- * @take/ui - settings-modal.ts (工单 18 扩容与删除 Key 终版)
- * 1. 扩容至 11 家厂商（6 既有 + xAI/Grok + 阿里千问/Qwen + 智谱/GLM + 豆包/Doubao + MiniMax）；
- * 2. 豆包支持填推理接入点 ID（ep- 开头）；
- * 3. 已配置行增加「删除 Key」按钮，点击经确认后调用 KeyStore.deleteKey，并走 safeReRender 回到未配置态；
- * 4. 彻底消除 DOM 指针悬空，换入与注销自洽。
+ * @take/ui - settings-modal.ts (工单 19 扩容版)
+ * 厂商列表增至 12 行（增加 NVIDIA，nvapi- 前缀）
  */
 
 import { ConnectionTester, ConnectionTestResult, KeyStore, ComfyUiAdapter, DEFAULT_COMFYUI_URL } from '@take/adapters';
@@ -37,12 +34,13 @@ export class SettingsModal {
     { id: 'google', name: 'Google Gemini', placeholder: 'AIza…' },
     { id: 'moonshot', name: 'Moonshot (Kimi)', placeholder: 'sk-…' },
     { id: 'openrouter', name: 'OpenRouter', placeholder: 'sk-or-…' },
-    // 工单 18 扩容 5 家
     { id: 'xai', name: 'xAI (Grok)', placeholder: 'xai-…' },
     { id: 'qwen', name: '通义千问 (Qwen)', placeholder: 'sk-…' },
     { id: 'zhipu', name: '智谱 (GLM)', placeholder: 'API Key…' },
     { id: 'doubao', name: '豆包 (火山方舟)', placeholder: 'API Key…', allowCustomModel: true },
     { id: 'minimax', name: 'MiniMax', placeholder: 'API Key…' },
+    // 工单 19 新增第 12 家：NVIDIA (nvapi- 前缀)
+    { id: 'nvidia', name: 'NVIDIA', placeholder: 'nvapi-…' },
   ];
 
   constructor(private options: SettingsModalOptions) {}
@@ -120,7 +118,7 @@ export class SettingsModal {
         </div>
 
         <div class="mb">
-          <!-- 页签 1: 厂商与 Key (11 家) -->
+          <!-- 页签 1: 厂商与 Key (12 家) -->
           <div class="tab-pane" id="pane-providers" style="${this.currentTab === 'providers' ? '' : 'display:none;'}">
             ${securityNotice}
             <div class="provider-list">${providerRows}</div>
@@ -206,7 +204,6 @@ export class SettingsModal {
       });
     });
 
-    // 展开未配置厂商 Key 输入行
     modal.querySelectorAll<HTMLButtonElement>('.btn-toggle-expand').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const pId = btn.getAttribute('data-provider');
@@ -217,7 +214,6 @@ export class SettingsModal {
       });
     });
 
-    // 收起输入行
     modal.querySelectorAll<HTMLButtonElement>('.btn-toggle-collapse').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const pId = btn.getAttribute('data-provider');
@@ -228,7 +224,6 @@ export class SettingsModal {
       });
     });
 
-    // 删除 Key（工单 18 新增，经确认后删除并调用 deleteKey，并回到未配置态）
     modal.querySelectorAll<HTMLButtonElement>('.btn-delete-key').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const pId = btn.getAttribute('data-provider');
@@ -247,7 +242,6 @@ export class SettingsModal {
       });
     });
 
-    // 保存所有配置
     modal.querySelector('#btn-save-all-settings')?.addEventListener('click', async () => {
       const inputs = modal.querySelectorAll<HTMLInputElement>('.key-input');
       for (const input of inputs) {
@@ -277,7 +271,6 @@ export class SettingsModal {
       this.close();
     });
 
-    // 测试连接（支持 11 家厂商）
     modal.querySelectorAll<HTMLButtonElement>('.btn-test-conn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const provider = btn.getAttribute('data-provider');
@@ -321,7 +314,6 @@ export class SettingsModal {
       });
     });
 
-    // ComfyUI 测试连接
     const btnTestComfy = modal.querySelector<HTMLButtonElement>('#btn-test-comfyui');
     const comfyInput = modal.querySelector<HTMLInputElement>('#comfyui-endpoint-input');
     const comfyStatus = modal.querySelector<HTMLElement>('#comfyui-status');

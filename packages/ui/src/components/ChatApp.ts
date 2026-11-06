@@ -1,12 +1,6 @@
 /**
- * @take/ui - ChatApp.ts (工单 18 返工修复终版)
- * 修复项：
- * 1. 补齐顶部 import { setLocale } 导入声明（解决 TS 构建找不到 setLocale 报错）；
- * 2. 修正账本取数 API：由不存在的 getSummary() 改为 getSessionSummary(sessionId) + getMonthlySummary() 一对真实 API；
- * 3. 完整支持 11 家厂商智能体身份定义；
- * 4. 支持对话增删（新建对话/删除对话，localStorage 本地持久化，删后平滑切房）；
- * 5. @ 联想候选层完整键盘与点击交互；
- * 6. 预设房随房隔离不受影响。
+ * @take/ui - ChatApp.ts (工单 19 扩容 12 家终版)
+ * 增加 NVIDIA 智能体身份（Nv / meta/llama-3.3-70b-instruct），支持入新对话与 @ 候选
  */
 
 import { ContextEngine, Session, AgentProfile, EngineEvent, LocalLedger, StoryboardManager } from '@take/engine';
@@ -128,10 +122,7 @@ export class ChatApp {
   private currentRoomId: string = 'prompt-clinic';
   private hasLoadedDemo: boolean = false;
 
-  // 对话列表
   private rooms: CustomRoomMeta[] = [];
-
-  // @ 候选层状态
   private mentionQuery: string | null = null;
   private selectedMentionIndex: number = 0;
 
@@ -179,7 +170,7 @@ export class ChatApp {
       },
     ]);
 
-    // 11 家厂商智能体身份全量定义
+    // 12 家厂商智能体身份全量定义（含 NVIDIA）
     this.agents = [
       { id: 'Cl', name: 'Claude', shortName: 'Cl', avatarClass: 'a-claude', roleZh: '提示词专家', roleEn: 'Prompt Specialist', systemPrompt: '提示词专家', provider: 'anthropic', modelName: 'claude-3-7-sonnet', driverType: 'cloud_api', status: 'ready' },
       { id: 'Gp', name: 'ChatGPT', shortName: 'Gp', avatarClass: 'a-gpt', roleZh: '分镜师', roleEn: 'Storyboard Artist', systemPrompt: '分镜师', provider: 'openai', modelName: 'gpt-4o', driverType: 'cloud_api', status: 'ready' },
@@ -192,6 +183,8 @@ export class ChatApp {
       { id: 'Gl', name: '智谱 GLM', shortName: 'Gl', avatarClass: 'a-glm', roleZh: '清言专家', roleEn: 'GLM Specialist', systemPrompt: '智谱清言', provider: 'zhipu', modelName: 'glm-4-flash', driverType: 'cloud_api', status: 'ready' },
       { id: 'Db', name: '豆包 Doubao', shortName: 'Db', avatarClass: 'a-db', roleZh: '火山助手', roleEn: 'Doubao Assistant', systemPrompt: '豆包助手', provider: 'doubao', modelName: 'doubao-lite-128k', driverType: 'cloud_api', status: 'ready' },
       { id: 'Mx', name: 'MiniMax', shortName: 'Mx', avatarClass: 'a-mx', roleZh: '文本生成', roleEn: 'Text Synthesis', systemPrompt: 'MiniMax', provider: 'minimax', modelName: 'MiniMax-Text-01', driverType: 'cloud_api', status: 'ready' },
+      // 工单 19 新增：NVIDIA
+      { id: 'Nv', name: 'NVIDIA', shortName: 'Nv', avatarClass: 'a-nv', roleZh: '开源聚合 · 算力推理', roleEn: 'NVIDIA Inference · Open Models', systemPrompt: 'NVIDIA 算力推理', provider: 'nvidia', modelName: 'meta/llama-3.3-70b-instruct', driverType: 'cloud_api', status: 'ready' },
       { id: 'Cc', name: 'Claude Code', shortName: 'Cc', avatarClass: 'a-cli', roleZh: '本地编程', roleEn: 'Local Coding', systemPrompt: '本地 ACP 架构', provider: 'local-cli', modelName: 'claude-code-acp', driverType: 'local_acp', status: 'ready' },
     ];
 
@@ -303,7 +296,6 @@ export class ChatApp {
     const currentRoom = this.getCurrentRoom();
     const isPresetRoom = Boolean(currentRoom?.isPreset);
 
-    // 1. 左栏房间列表
     const roomsHtml = this.rooms
       .map((r) => {
         const isActive = r.id === this.currentRoomId;
@@ -316,7 +308,6 @@ export class ChatApp {
       })
       .join('');
 
-    // 2. 左栏云端助手列表
     const cloudAgentsHtml = this.agents
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
@@ -332,7 +323,6 @@ export class ChatApp {
       })
       .join('');
 
-    // 3. 左栏本地工具列表
     const localToolsHtml = `
       <div class="item" data-tool="claude-code">
         <div class="ava a-cli">Cc</div>Claude Code
@@ -344,7 +334,6 @@ export class ChatApp {
       </div>
     `;
 
-    // 4. 主消息区
     let mainMessagesHtml = '';
     if (!currentRoom) {
       mainMessagesHtml = `
@@ -383,7 +372,6 @@ export class ChatApp {
       `;
     }
 
-    // 5. 右栏内容
     let rightRailContentHtml = '';
     const demoDef = isPresetRoom ? ROOM_DEMO_DEFINITIONS[this.currentRoomId] : undefined;
 
@@ -538,14 +526,12 @@ export class ChatApp {
   }
 
   private bindEvents(): void {
-    // 1. 语言切换
     this.container.querySelector('#btn-toggle-lang')?.addEventListener('click', () => {
       const cur = getLocale();
       setLocale(cur === 'zh-CN' ? 'en-US' : 'zh-CN');
       this.mount();
     });
 
-    // 2. 打开设置面板
     this.container.querySelector('#btn-open-settings')?.addEventListener('click', async () => {
       if (this.activeModal) {
         this.activeModal.close();
@@ -567,14 +553,12 @@ export class ChatApp {
       document.body.appendChild(modalEl);
     });
 
-    // 3. 载入演示按钮
     this.container.querySelector('#btn-load-demo')?.addEventListener('click', () => {
       this.hasLoadedDemo = true;
       this.render();
       this.bindEvents();
     });
 
-    // 4. 切换房间
     this.container.querySelectorAll('.room-item-row[data-room]').forEach((el) => {
       el.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).classList.contains('btn-del-room')) return;
@@ -588,12 +572,10 @@ export class ChatApp {
       });
     });
 
-    // 5. 新建对话
     this.container.querySelector('#btn-add-room')?.addEventListener('click', async () => {
       await this.handleCreateNewChat();
     });
 
-    // 6. 删除对话
     this.container.querySelectorAll<HTMLButtonElement>('.btn-del-room').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -604,7 +586,6 @@ export class ChatApp {
       });
     });
 
-    // 7. 会诊模式切换
     this.container.querySelector('#btn-mode-broadcast')?.addEventListener('click', () => {
       this.isBroadcastMode = true;
       this.render();
@@ -616,7 +597,6 @@ export class ChatApp {
       this.bindEvents();
     });
 
-    // 8. 输入框 @ 联想与键盘事件
     const textarea = this.container.querySelector<HTMLTextAreaElement>('#main-textarea');
     if (textarea) {
       textarea.addEventListener('input', () => {
@@ -627,7 +607,6 @@ export class ChatApp {
       });
     }
 
-    // 9. 发送消息
     this.container.querySelector('#btn-send-message')?.addEventListener('click', () => {
       this.handleSendMessage();
     });
@@ -914,10 +893,6 @@ export class ChatApp {
     }
   }
 
-  /**
-   * 刷新财务账本小卡
-   * 修复点：调用真实 API getSessionSummary(sessionId) 与 getMonthlySummary()
-   */
   public refreshLedgerDisplay(): void {
     const sessionSummary = this.ledger.getSessionSummary(this.session.id);
     const monthlySummary = this.ledger.getMonthlySummary();

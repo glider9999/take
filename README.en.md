@@ -9,10 +9,10 @@ English | [简体中文](README.md)
 
 ## 🌟 Why TakeChat?
 
-Unlike conventional single-model interfaces or proprietary commercial wrappers, **TakeChat** treats 11 major cloud LLMs and local CLI agents (such as Claude Code) as independent contacts within shared discussion rooms.
+Unlike conventional single-model interfaces or proprietary commercial wrappers, **TakeChat** treats 12 major cloud LLMs and local CLI agents (such as Claude Code) as independent contacts within shared discussion rooms.
 
 - **Multi-Model Relay & Cognitive Alignment**: Supports "All models reply (each once)" and "@mention direct reply". Preceding model responses are automatically injected into subsequent models' context windows for seamless iterative deliberation.
-- **11 Cloud Model Providers Supported Directly**:
+- **12 Cloud Model Providers Supported Directly**:
   1. **Anthropic** (Claude 3.7 Sonnet / Claude 3.5 Sonnet)
   2. **OpenAI** (GPT-4o / o1 / o3)
   3. **Google** (Gemini 2.0 Flash / Pro)
@@ -24,6 +24,7 @@ Unlike conventional single-model interfaces or proprietary commercial wrappers, 
   9. **Zhipu AI** (GLM-4 Flash / Plus)
   10. **Volcengine Doubao** (Doubao Lite / Inference Endpoint ID ep-xxx)
   11. **MiniMax** (MiniMax Text 01)
+  12. **NVIDIA** (build.nvidia.com catalog, Llama 3.1 / 3.3 models with `nvapi-` prefix)
 - **Four Official Clinic Rooms**:
   1. 🎨 **Prompt Clinic**: Multi-model video/image prompt refinement and cinematography optimization;
   2. 🛠️ **ComfyUI Repair**: Automated workflow node diagnosis with structured error case sheets;

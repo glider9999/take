@@ -1,9 +1,9 @@
 /**
- * @take/adapters - connection-tester.ts (工单 18 扩容版)
- * 11 家厂商 API 联调自检器
+ * @take/adapters - connection-tester.ts (工单 19 扩容版)
+ * 12 家厂商 API 联调自检器
  * 涵盖：
- * 既有 6 家：Anthropic, OpenAI, Google, DeepSeek, Moonshot/Kimi, OpenRouter
- * 新增 5 家：xAI(Grok), 阿里千问(Qwen), 智谱(GLM), 豆包(Doubao), MiniMax
+ * 既有 11 家：Anthropic, OpenAI, Google, DeepSeek, Moonshot/Kimi, OpenRouter, xAI(Grok), 阿里千问(Qwen), 智谱(GLM), 豆包(Doubao), MiniMax
+ * 新增 1 家：NVIDIA (integrate.api.nvidia.com)
  */
 
 import { CloudApiAdapter, ModelRegistryEntry, RateLimitError } from './cloud-api-adapter.js';
@@ -18,7 +18,7 @@ export interface ConnectionTestResult {
   retryAfterSeconds?: number;
 }
 
-// 11 家厂商联调自检默认最小模型探针定义
+// 12 家厂商联调自检默认最小模型探针定义
 export const DEFAULT_PROBE_MODELS: Record<string, ModelRegistryEntry> = {
   anthropic: {
     id: 'claude-3-7-sonnet',
@@ -82,7 +82,6 @@ export const DEFAULT_PROBE_MODELS: Record<string, ModelRegistryEntry> = {
       'X-Title': 'Take Client Test',
     },
   },
-  // --- 工单 18 新增 5 家 ---
   xai: {
     id: 'grok-3-mini',
     name: 'Grok 3 Mini',
@@ -126,6 +125,16 @@ export const DEFAULT_PROBE_MODELS: Record<string, ModelRegistryEntry> = {
     driverType: 'cloud_api',
     defaultBaseUrl: 'https://api.minimax.io/v1',
     contextWindow: 1000000,
+    supportsStreaming: true,
+  },
+  // --- 工单 19 新增：NVIDIA (build.nvidia.com) ---
+  nvidia: {
+    id: 'meta/llama-3.1-8b-instruct',
+    name: 'Llama 3.1 8B Instruct (NVIDIA)',
+    provider: 'nvidia',
+    driverType: 'cloud_api',
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1',
+    contextWindow: 131072,
     supportsStreaming: true,
   },
 };

@@ -150,7 +150,7 @@ describe('TakeChat Ticket 18 Adapters Expansion Test Suite [mock验证]', () => 
     expect(result.modelId).toBe('MiniMax-Text-01');
   });
 
-  it('11 家厂商全量覆盖收口对账验证 [mock验证]', () => {
+  it('12 家厂商全量覆盖收口对账验证 [mock验证]', () => {
     const allProviders = [
       'anthropic',
       'openai',
@@ -163,9 +163,10 @@ describe('TakeChat Ticket 18 Adapters Expansion Test Suite [mock验证]', () => 
       'zhipu',
       'doubao',
       'minimax',
+      'nvidia',
     ];
 
-    expect(Object.keys(DEFAULT_PROBE_MODELS)).toHaveLength(11);
+    expect(Object.keys(DEFAULT_PROBE_MODELS)).toHaveLength(12);
     for (const p of allProviders) {
       expect(DEFAULT_PROBE_MODELS[p], `缺失厂商探针定义: ${p}`).toBeDefined();
       expect(DEFAULT_PROBE_MODELS[p].defaultBaseUrl).toBeTruthy();
