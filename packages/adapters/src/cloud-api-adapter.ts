@@ -1,10 +1,10 @@
 /**
- * @take/adapters - cloud-api-adapter.ts (工单 18 扩容版)
- * 11 家厂商云端大模型通用适配器
- * 支持：
+ * @take/adapters - cloud-api-adapter.ts (工单 19 扩容版)
+ * 12 家厂商云端大模型通用适配器
+ * 涵盖：
  * - Anthropic (原生 Messages API)
  * - Google Gemini (Gemini REST/兼容接口)
- * - OpenAI 兼容标准接口（OpenAI, DeepSeek, Moonshot/Kimi, OpenRouter, xAI/Grok, Qwen/阿里千问, GLM/智谱, Doubao/豆包火山方舟, MiniMax）
+ * - OpenAI 兼容标准接口：OpenAI, DeepSeek, Moonshot/Kimi, OpenRouter, xAI/Grok, Qwen/阿里千问, GLM/智谱, Doubao/豆包火山方舟, MiniMax, NVIDIA
  */
 
 import { universalFetch } from './http-client.js';
@@ -20,7 +20,8 @@ export type ProviderId =
   | 'qwen'
   | 'zhipu'
   | 'doubao'
-  | 'minimax';
+  | 'minimax'
+  | 'nvidia';
 
 export interface ModelRegistryEntry {
   id: string;
@@ -90,7 +91,7 @@ export class CloudApiAdapter {
       } else if (this.modelEntry.provider === 'google') {
         await this.streamGoogleGemini(baseUrl, messages, signal, callbacks);
       } else {
-        // OpenAI, DeepSeek, Moonshot, OpenRouter, xAI, Qwen, Zhipu, Doubao, MiniMax 统一步调走 OpenAI 兼容协议
+        // OpenAI, DeepSeek, Moonshot, OpenRouter, xAI, Qwen, Zhipu, Doubao, MiniMax, NVIDIA 统一走 OpenAI 兼容规范
         await this.streamOpenAiCompatible(baseUrl, messages, signal, callbacks);
       }
     } catch (err: unknown) {
@@ -277,7 +278,7 @@ export class CloudApiAdapter {
         });
       }
     } catch {
-      // 忽略残损块
+      // 容错
     }
   }
 
@@ -342,7 +343,7 @@ export class CloudApiAdapter {
         onUsage({ output: json.usage.output_tokens || 0 });
       }
     } catch {
-      // 忽略残损
+      // 容错
     }
   }
 }
