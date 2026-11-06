@@ -2,101 +2,56 @@
 
 English | [简体中文](README.md)
 
-> **Universal Multi-Agent Collaborative Group Chat Client · Truly Open Source, Local-First Privacy, Multi-Model Synergy**  
-> Licensed under **Apache-2.0**
+> **Universal Multi-Agent Collaborative Group Chat Client · Truly Open Source, Local-First, Relay-Driven**  
+> Released under the **Apache-2.0** License
 
 ---
 
 ## 🌟 Why TakeChat?
 
-Unlike conventional single-model interfaces or closed proprietary wrappers, **TakeChat** brings multiple AI assistants (Claude, ChatGPT, Gemini, DeepSeek, Moonshot, Grok, etc.) and local coding CLIs together as "independent contacts" in a unified group chat.
+Unlike conventional single-model interfaces or proprietary commercial wrappers, **TakeChat** treats 11 major cloud LLMs and local CLI agents (such as Claude Code) as independent contacts within shared discussion rooms.
 
-- **Multi-Agent Relay & Aligned Cognition**: Supports "All models reply (each responds once per turn)" and "Mention one (direct mode)". Earlier agent responses automatically become visible context for subsequent agents in the same turn, enabling structured multi-agent relay.
-- **Four Official Built-in Clinic Rooms**:
-  1. 🎨 **Prompt Clinic**: Multi-model prompt polishing, constraint compression, and vision-to-prompt tuning;
-  2. 🛠️ **ComfyUI Repair**: Workflow JSON submission, queue polling, and structured node error diagnosis;
-  3. 🎬 **Storyboard & Camera Clinic**: Scene breakdown, shot scale planning, camera prompt generation, and storyboard table summary;
-  4. 💡 **General Clinic**: Open-ended multi-agent brainstorming and collaborative problem solving.
-- **Strictly Local-First Privacy**: Zero telemetry, zero middleman proxy servers. API keys and chat history stay locked inside your OS native credential vault or local browser storage.
-- **Dual Edition Architecture**:
-  - 🌐 **Web Lightweight Edition**: Hosted statically on GitHub Pages, zero-install, direct cloud API connections, zero hosting overhead;
-  - 🖥️ **Desktop Native Edition**: Powered by Tauri v2 with Rust, supporting cloud APIs + local ACP/CLIs (Claude Code, Cursor ACP, Aider) + local ComfyUI workflow diagnostics.
+- **Multi-Model Relay & Cognitive Alignment**: Supports "All models reply (each once)" and "@mention direct reply". Preceding model responses are automatically injected into subsequent models' context windows for seamless iterative deliberation.
+- **11 Cloud Model Providers Supported Directly**:
+  1. **Anthropic** (Claude 3.7 Sonnet / Claude 3.5 Sonnet)
+  2. **OpenAI** (GPT-4o / o1 / o3)
+  3. **Google** (Gemini 2.0 Flash / Pro)
+  4. **DeepSeek** (DeepSeek V3 / R1)
+  5. **Moonshot** (Kimi Moonshot v1)
+  6. **OpenRouter** (Auto Router / Aggregation)
+  7. **xAI** (Grok 3 Mini / Grok 2)
+  8. **Alibaba Qwen** (Qwen Turbo / Plus)
+  9. **Zhipu AI** (GLM-4 Flash / Plus)
+  10. **Volcengine Doubao** (Doubao Lite / Inference Endpoint ID ep-xxx)
+  11. **MiniMax** (MiniMax Text 01)
+- **Four Official Clinic Rooms**:
+  1. 🎨 **Prompt Clinic**: Multi-model video/image prompt refinement and cinematography optimization;
+  2. 🛠️ **ComfyUI Repair**: Automated workflow node diagnosis with structured error case sheets;
+  3. 🎬 **Storyboard & Camera Clinic**: Scene breakdown, shot scale planning, table summaries, and preview rendering;
+  4. 💡 **General Clinic**: Open multi-agent brainstorming and complex reasoning.
+- **Local-First & Key Safety**: Zero cloud telemetry, zero relay servers. Keys and data are stored in system keychain or browser local storage, with one-click key deletion support.
+- **Dual Architecture (Web / Desktop)**:
+  - 🌐 **Web Edition**: Hosted statically on GitHub Pages, connects directly to official APIs without private network issues;
+  - 🖥️ **Desktop Edition**: Tauri v2-powered with system keychain security, ACP stdio processes, and ComfyUI local connections.
 
 ---
 
-## 🛠️ Building from Source (Topological Order)
-
-This project is organized as a `pnpm workspaces` Monorepo. Builds must follow the **topological dependency sequence**:
+## 🛠️ Build from Source
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/glider9999/take.git
 cd take
-
-# 2. Install dependencies
 pnpm install
-
-# 3. Build all packages in topological sequence (engine -> adapters -> ui -> web / desktop)
 pnpm -r build
 ```
 
-> ⚠️ **Key Build Prerequisite for Clean Checkouts**:  
-> When running from a clean repository checkout, you **must run `pnpm -r build` first** (to compile `@take/engine`, `@take/adapters`, and `@take/tools` into `dist/`) before running `pnpm test`.  
-> Downstream workspace packages and tests reference compiled outputs. Running tests on a clean checkout without building first will fail to resolve imports.
-
-### Running Local Development Servers & Tests
-- **Run Browser Web App**:
-  ```bash
-  pnpm --filter @take/web dev
-  # Open http://localhost:3000
-  ```
-- **Run Desktop Native Client**:
-  ```bash
-  pnpm --filter @take/desktop tauri dev
-  ```
-- **Run Automated Vitest Test Suites (requires prior pnpm -r build)**:
-  ```bash
-  pnpm test
-  ```
+Run test suite:
+```bash
+pnpm test
+```
 
 ---
 
-## 🛡️ Unsigned Binary Security Bypass (Gatekeeper / SmartScreen)
+## 🔒 License
 
-To keep TakeChat 100% free and community-driven, releases do not bundle proprietary commercial certificates at this initial stage. The code is completely open, auditable, and malware-free. If your operating system warns about an unidentified developer, please follow these steps:
-
-### 1. macOS (Apple Gatekeeper)
-- **Symptom**: "TakeChat cannot be opened because the developer cannot be verified."
-- **Solution**:
-  - **Option A (GUI)**: Go to **System Settings** -> **Privacy & Security** -> scroll down to "Security" -> Click **"Open Anyway"** for TakeChat.
-  - **Option B (Terminal)**:
-    ```bash
-    xattr -cr /Applications/TakeChat.app
-    ```
-
-### 2. Windows (Microsoft Defender SmartScreen)
-- **Symptom**: "Windows protected your PC - Microsoft Defender SmartScreen prevented an unrecognized app from starting."
-- **Solution**:
-  - Click **"More info"**;
-  - Click the **"Run anyway"** button.
-
-### 3. Linux
-- Make the `.AppImage` executable:
-  ```bash
-  chmod +x TakeChat-x.x.x.AppImage
-  ./TakeChat-x.x.x.AppImage
-  ```
-
----
-
-## 🔒 Security & API Key Safety Notice
-
-- **Browser Edition**: API Keys are stored **exclusively in your browser's local storage**. Never input high-spend production keys on shared or public devices.
-- **Desktop Edition**: API Keys are stored via the operating system native credential vault (`keyring`: macOS Keychain / Windows Credential Manager / Linux Secret Service).
-- **Connection Diagnostics**: Test API connectivity directly inside **Settings** (runs isolated minimal ping probes without saving to chat history or usage ledgers).
-
----
-
-## 📄 License
-
-Licensed under the **Apache License, Version 2.0**. See `LICENSE` and `THIRD_PARTY_NOTICES.md` for complete details.
+Apache License, Version 2.0. See `THIRD_PARTY_NOTICES.md` for audits.
