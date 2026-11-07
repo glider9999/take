@@ -177,6 +177,14 @@ body {
 .a-cui    { background: #7A5EA8; }
 .a-host   { background: #C8402A; }
 .a-user   { background: #C8402A; }
+/* 工单 20 补齐：12 家厂商全覆盖（官方品牌色，白字对比达标） */
+.a-kimi   { background: #1E4FA0; }  /* Moonshot Kimi 蓝 */
+.a-or     { background: #6B4F9E; }  /* OpenRouter 紫 */
+.a-qwen   { background: #6B4DD6; }  /* 通义千问紫 */
+.a-glm    { background: #2E5E9E; }  /* 智谱 GLM 蓝 */
+.a-db     { background: #C8102E; }  /* 豆包红 */
+.a-mx     { background: #3A6EA5; }  /* MiniMax 蓝 */
+.a-nv     { background: #76B900; }  /* NVIDIA 绿 */
 
 /* 状态点与标签（最高优先级一枚） */
 .dot {
@@ -1042,4 +1050,273 @@ body {
   background: #FDF0EC;
   border-radius: 6px;
   line-height: 1.5;
+}
+
+/* ============================================================
+   工单 20：UI 还原补写（ChatApp 结构对齐 app.css 外壳类之后的新增样式）
+   令牌：纸 #FAF7F0 / 卡 #FFFDF8 / 边线 #E3DCCB / 朱红 #C8402A / 墨 #1C1A17
+   ============================================================ */
+
+/* 左栏列表项：名字省略 + 删除按钮留位 */
+.item .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item .btn-del-room {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #A39A88;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.item:hover .btn-del-room,
+.item.on .btn-del-room {
+  opacity: 1;
+}
+
+.item .btn-del-room:hover {
+  color: #C8402A;
+  background: #FDF0EC;
+}
+
+/* dot 已有 margin-left:auto；删除按钮在场时让位给按钮 */
+.item .dot, .item .badge, .item .err-n, .item .think-tag {
+  margin-left: auto;
+}
+
+.item .btn-del-room + .dot,
+.item .btn-del-room + .badge {
+  margin-left: 0;
+}
+
+/* 房间列表容器：超出内部滚动，避免撑爆左栏 */
+.rail .room-list {
+  overflow-y: auto;
+  flex: none;
+  max-height: 180px;
+}
+
+/* 新建对话按钮（左栏索引节奏） */
+.rail .btn-add-room {
+  display: block;
+  width: calc(100% - 14px);
+  margin: 4px 7px 8px;
+  padding: 6px 9px;
+  border: 1px dashed #C5BCAB;
+  border-radius: 9px;
+  background: transparent;
+  color: #57524A;
+  font-size: 12.5px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.rail .btn-add-room:hover {
+  background: #F1EBDD;
+  border-color: #A39682;
+  color: #1C1A17;
+}
+
+/* chat-head 首行：标题与 EN/设置按钮同行 */
+.chat-head .ch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-head .ch-row .t {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #1C1A17;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-head .ch-btns {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 模式切换段控件（composer 内） */
+.composer .mode-toggle {
+  border: 1px solid #E3DCCB;
+  background: #FAF7F0;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #57524A;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.composer .mode-toggle:hover {
+  background: #F1EBDD;
+  color: #1C1A17;
+}
+
+.composer .mode-toggle.on {
+  background: #C8402A;
+  border-color: #C8402A;
+  color: #FFFDF8;
+  font-weight: 600;
+}
+
+/* 输入框：多行自适应、去默认缩放手柄观感 */
+.composer .box {
+  resize: none;
+  min-height: 44px;
+  max-height: 120px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* 右栏成员行：横向单行（头像＋名字＋状态同行） */
+.mrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 4.5px 0;
+}
+
+.mrow .n {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mrow .st {
+  margin-left: auto;
+  flex: none;
+  color: #7A7368;
+  font-size: 11.5px;
+}
+
+.mrow .st.hot {
+  color: #C8402A;
+  font-weight: 600;
+}
+
+/* 右栏空态提示 */
+.right .empty-st-hint {
+  font-size: 12px;
+  color: #7A7368;
+  line-height: 1.6;
+  padding: 2px 0;
+}
+
+/* 顶栏房间名与 logo 间距自动省略 */
+.topbar .rt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   工单 20：设置弹窗修复（横向溢出 / 未配置文字 / 保存按钮 / 页签下划线）
+   ============================================================ */
+
+/* 已配置行允许换行，杜绝横向溢出与「删除 Key」被裁切 */
+.vrow {
+  flex-wrap: wrap;
+  row-gap: 7px;
+}
+
+.vrow .key {
+  min-width: 140px;
+}
+
+/* 状态列允许收缩换行，不再固定 172px 撑宽 */
+.vrow .st {
+  width: auto;
+  min-width: 0;
+  max-width: 172px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 未配置文字加深一档（#C8C5B9 → #7A7368） */
+.vrow .st.none {
+  color: #7A7368;
+}
+
+/* 删除 Key 按钮：朱红描边样式（类承载，替代内联） */
+.vrow .btn-delete-key {
+  color: #C8402A;
+  border-color: #E8B4A8;
+}
+
+.vrow .btn-delete-key:hover {
+  background: #FDF0EC;
+  color: #A3321F;
+}
+
+/* 收起小按钮 */
+.vrow .btn-toggle-collapse {
+  padding: 6px 8px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.vrow .btn-toggle-collapse:hover {
+  opacity: 1;
+}
+
+/* 保存配置：朱红主按钮（与 .send 同源） */
+.btn-save-settings {
+  background: #C8402A;
+  color: #FFFDF8;
+  border: none;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-save-settings:hover {
+  opacity: 0.88;
+}
+
+/* 页签激活态：朱红下划线 */
+.tab {
+  position: relative;
+}
+
+.tab.on::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 2px 2px 0 0;
+  background: #C8402A;
+}
+
+/* 弹窗主体永不横向滚动 */
+.modal .mb {
+  overflow-x: hidden;
 }

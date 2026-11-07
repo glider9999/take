@@ -80,7 +80,7 @@ export class SettingsModal {
         `;
       } else {
         const extraInput = p.allowCustomModel
-          ? `<input type="text" class="key model-input" data-provider="${p.id}" placeholder="Endpoint/Model ID (如 ep-… 或 doubao-lite-128k)" style="width:240px;margin-left:6px;font-size:12px;" />`
+          ? `<input type="text" class="key model-input" data-provider="${p.id}" placeholder="Endpoint/Model ID (如 ep-… 或 doubao-lite-128k)" />`
           : '';
 
         providerRows += `
@@ -92,8 +92,8 @@ export class SettingsModal {
             <button class="tb btn-test-conn" data-provider="${p.id}">${t('testConn')}</button>
             ${
               savedKey
-                ? `<button class="tb btn-delete-key" data-provider="${p.id}" style="color:#C8402A;border-color:#E8B4A8;padding:4px 9px;">${t('deleteKey')}</button>`
-                : `<button class="tb btn-toggle-collapse" data-provider="${p.id}" style="padding:4px 8px;font-size:11px;opacity:0.7;">✕</button>`
+                ? `<button class="tb btn-delete-key" data-provider="${p.id}">${t('deleteKey')}</button>`
+                : `<button class="tb btn-toggle-collapse" data-provider="${p.id}">✕</button>`
             }
           </div>
         `;
@@ -161,7 +161,7 @@ export class SettingsModal {
         </div>
 
         <div style="padding:12px 20px;background:#F3EFE6;border-top:1px solid #E3DCCB;display:flex;justify-content:flex-end;gap:10px;">
-          <button class="send" id="btn-save-all-settings" style="padding:8px 22px;">${t('saveConfig')}</button>
+          <button class="send btn-save-settings" id="btn-save-all-settings" style="padding:8px 22px;">${t('saveConfig')}</button>
         </div>
       </div>
     `;

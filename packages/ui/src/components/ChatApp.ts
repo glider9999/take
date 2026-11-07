@@ -125,6 +125,7 @@ export class ChatApp {
   private rooms: CustomRoomMeta[] = [];
   private mentionQuery: string | null = null;
   private selectedMentionIndex: number = 0;
+  private configuredProviderIds: Set<string> = new Set();
 
   constructor(options: ChatAppOptions) {
     this.container = options.container;
@@ -251,6 +252,34 @@ export class ChatApp {
     this.render();
     this.bindEvents();
     this.refreshLedgerDisplay();
+    this.refreshConfiguredKeys();
+  }
+
+  private async refreshConfiguredKeys(): Promise<void> {
+    const configured = new Set<string>();
+    for (const agent of this.agents) {
+      if (agent.driverType === 'cloud_api' && agent.provider) {
+        const key = await this.keyStore.getKey(agent.provider);
+        if (key && key.trim()) {
+          configured.add(agent.provider);
+        }
+      }
+    }
+    this.configuredProviderIds = configured;
+    this.syncAllDots();
+  }
+
+  private syncAllDots(): void {
+    this.agents.forEach((agent) => {
+      const itemEl = this.container.querySelector(`.item[data-agent="${agent.id}"]`);
+      if (itemEl) {
+        const dot = itemEl.querySelector('.dot');
+        if (dot && agent.driverType === 'cloud_api') {
+          const hasKey = this.configuredProviderIds.has(agent.provider || '');
+          dot.classList.toggle('off', !hasKey);
+        }
+      }
+    });
   }
 
   private setupEngineListeners(): void {
@@ -300,7 +329,7 @@ export class ChatApp {
       .map((r) => {
         const isActive = r.id === this.currentRoomId;
         return `
-          <div class="room-item-row ${isActive ? 'active' : ''}" data-room="${r.id}">
+          <div class="item room-item-row ${isActive ? 'on' : ''}" data-room="${r.id}">
             <span class="room-name">${r.name}</span>
             <button class="btn-del-room" data-room-del="${r.id}" title="${t('deleteRoom')}">✕</button>
           </div>
@@ -312,12 +341,13 @@ export class ChatApp {
       .filter((a) => a.driverType === 'cloud_api')
       .map((agent) => {
         const isThinking = this.thinkingAgents.has(agent.id);
+        const hasKey = this.configuredProviderIds.has(agent.provider || '');
         const roleDesc = curLocale === 'zh-CN' ? agent.roleZh : agent.roleEn;
         return `
           <div class="item ${isThinking ? 'thinking' : ''}" data-agent="${agent.id}" title="${roleDesc}">
             <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
-            ${agent.name}
-            ${isThinking ? `<span class="think-tag">${t('statusThinking')}</span>` : `<span class="dot"></span>`}
+            <span class="nm">${agent.name}</span>
+            ${isThinking ? `<span class="think-tag">${t('statusThinking')}</span>` : `<span class="dot ${hasKey ? '' : 'off'}"></span>`}
           </div>
         `;
       })
@@ -325,11 +355,11 @@ export class ChatApp {
 
     const localToolsHtml = `
       <div class="item" data-tool="claude-code">
-        <div class="ava a-cli">Cc</div>Claude Code
+        <div class="ava a-cli">Cc</div><span class="nm">Claude Code</span>
         ${this.isDesktop ? `<span class="dot"></span>` : `<span class="badge">${t('needsDesktop')}</span>`}
       </div>
       <div class="item" data-tool="comfyui">
-        <div class="ava a-cui">Cu</div>ComfyUI
+        <div class="ava a-cui">Cu</div><span class="nm">ComfyUI</span>
         ${this.isDesktop ? `<span class="dot"></span>` : `<span class="badge">${t('needsDesktop')}</span>`}
       </div>
     `;
@@ -410,9 +440,9 @@ export class ChatApp {
             const statusClass = isThinking ? 'st hot' : 'st';
 
             return `
-              <div class="member">
+              <div class="mrow">
                 <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
-                <div class="n">${agent.name}</div>
+                <span class="n">${agent.name}</span>
                 <div class="${statusClass}">${statusText}</div>
               </div>
             `;
@@ -432,11 +462,12 @@ export class ChatApp {
       const membersHtml = activeAgents
         .map((agent) => {
           const isThinking = this.thinkingAgents.has(agent.id);
-          const statusText = isThinking ? t('statusThinking') : t('statusReady');
+          const hasKey = this.configuredProviderIds.has(agent.provider || '');
+          const statusText = isThinking ? t('statusThinking') : hasKey ? t('statusReady') : t('statusNoKey');
           return `
-            <div class="member">
+            <div class="mrow">
               <div class="ava ${agent.avatarClass}">${agent.shortName}</div>
-              <div class="n">${agent.name}</div>
+              <span class="n">${agent.name}</span>
               <div class="st ${isThinking ? 'hot' : ''}">${statusText}</div>
             </div>
           `;
@@ -446,9 +477,7 @@ export class ChatApp {
       rightRailContentHtml = `
         <div class="card">
           <h5>${t('progressTitle')}</h5>
-          <div class="empty-st-hint" style="color:#7A7368;font-size:12.5px;padding:6px 0;line-height:1.6;">
-            ${t('rightRailProgressEmpty')}
-          </div>
+          <div class="empty-st-hint">${t('rightRailProgressEmpty')}</div>
         </div>
         <div class="card">
           <h5>${t('membersTitle')}</h5>
@@ -461,66 +490,64 @@ export class ChatApp {
     const subtitleText = `${subtitleModeText} · ${currentRoom?.name || ''} ${t('presentSuffix')}`;
 
     this.container.innerHTML = `
-      <div class="app-layout">
-        <aside class="left-rail">
-          <div class="brand">
-            <span class="logo">⚡</span>
-            <h3>${t('brandTitle')}</h3>
-          </div>
+      <div class="app">
+        <div class="topbar">
+          <div class="logo">Take<span>Chat</span></div>
+          <div class="rt">${currentRoom?.name || t('brandTitle')}</div>
+          <div class="sp"></div>
+        </div>
+        <div class="body">
+          <aside class="rail">
+            <h4>${t('roomsTitle')}</h4>
+            <button class="btn-add-room" id="btn-add-room">${t('addRoom')}</button>
+            <div class="room-list">${roomsHtml}</div>
 
-          <div class="section-title">${t('roomsTitle')}</div>
-          <button class="btn-add-room" id="btn-add-room">${t('addRoom')}</button>
-          <div class="room-list">${roomsHtml}</div>
+            <h4>${t('cloudAgentsTitle')}</h4>
+            <div class="agent-list">${cloudAgentsHtml}</div>
 
-          <div class="section-title" style="margin-top:14px;">${t('cloudAgentsTitle')}</div>
-          <div class="agent-list">${cloudAgentsHtml}</div>
+            <h4>${t('localToolsTitle')}</h4>
+            <div class="agent-list">${localToolsHtml}</div>
 
-          <div class="section-title" style="margin-top:14px;">${t('localToolsTitle')}</div>
-          <div class="agent-list">${localToolsHtml}</div>
-
-          <div class="mini-card" id="ledger-card">
-            <h5>${t('ledgerTitle')}</h5>
-            <div class="r">
-              <span>${t('ledgerSession')} <b id="ledger-session-cost">$0.00</b></span>
-              <span>${t('ledgerMonthly')} <b id="ledger-monthly-cost">$0.00/$20</b></span>
-            </div>
-          </div>
-        </aside>
-
-        <main class="main-content">
-          <header class="top-bar">
-            <div>
-              <h2 style="font-size:15.5px;font-weight:700;margin:0 0 2px 0;">${currentRoom?.name || t('brandTitle')}</h2>
-              <div class="subtitle" style="font-size:11.5px;color:#7A7368;">${subtitleText}</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <button class="tb" id="btn-toggle-lang" title="${t('titleToggleLang')}">${otherLocale}</button>
-              <button class="tb" id="btn-open-settings" title="${t('titleOpenSettings')}">${t('settings')}</button>
-            </div>
-          </header>
-
-          <section class="messages-stream" id="messages-stream">
-            ${mainMessagesHtml}
-          </section>
-
-          <footer class="input-panel" style="position:relative;">
-            <div id="mention-popup-container"></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-              <div class="mode-toggles">
-                <button class="tb ${this.isBroadcastMode ? 'active' : ''}" id="btn-mode-broadcast">${t('modeAllReply')}</button>
-                <button class="tb ${!this.isBroadcastMode ? 'active' : ''}" id="btn-mode-mention">${t('modeMentionOne')}</button>
+            <div class="grow"></div>
+            <div class="mini-card" id="ledger-card">
+              <h5>${t('ledgerTitle')}</h5>
+              <div class="r">
+                <span>${t('ledgerSession')} <b id="ledger-session-cost">$0.00</b></span>
+                <span>${t('ledgerMonthly')} <b id="ledger-monthly-cost">$0.00/$20</b></span>
               </div>
+              <div class="lbar"><i style="width:0%"></i></div>
             </div>
-            <div style="display:flex;gap:8px;">
-              <textarea class="main-input" id="main-textarea" rows="2" placeholder="${this.isBroadcastMode ? t('inputPlaceholder') : t('inputPlaceholderMention')}"></textarea>
+          </aside>
+
+          <section class="main">
+            <div class="chat-head">
+              <div class="ch-row">
+                <div class="t">${currentRoom?.name || t('brandTitle')}</div>
+                <div class="ch-btns">
+                  <button class="tbtn" id="btn-toggle-lang" title="${t('titleToggleLang')}">${otherLocale}</button>
+                  <button class="tbtn" id="btn-open-settings" title="${t('titleOpenSettings')}">${t('settings')}</button>
+                </div>
+              </div>
+              <div class="s">${subtitleText}</div>
+            </div>
+
+            <div class="msgs" id="messages-stream">
+              ${mainMessagesHtml}
+            </div>
+
+            <div class="composer" id="composer">
+              <div id="mention-popup-container"></div>
+              <div class="mode-toggle" id="btn-mode-broadcast">${t('modeAllReply')}</div>
+              <div class="mode-toggle" id="btn-mode-mention">${t('modeMentionOne')}</div>
+              <textarea class="box" id="main-textarea" rows="3" placeholder="${this.isBroadcastMode ? t('inputPlaceholder') : t('inputPlaceholderMention')}"></textarea>
               <button class="send" id="btn-send-message">${t('sendBtn')}</button>
             </div>
-          </footer>
-        </main>
+          </section>
 
-        <aside class="right-rail">
-          ${rightRailContentHtml}
-        </aside>
+          <aside class="right">
+            ${rightRailContentHtml}
+          </aside>
+        </div>
       </div>
     `;
   }
@@ -834,6 +861,7 @@ export class ChatApp {
   }
 
   private async refreshAgentsAfterKeyChange(): Promise<void> {
+    await this.refreshConfiguredKeys();
     this.render();
     this.bindEvents();
   }
@@ -883,10 +911,13 @@ export class ChatApp {
     const stream = this.container.querySelector('#messages-stream');
     if (stream) {
       const userBubble = document.createElement('div');
-      userBubble.className = 'msg user';
+      userBubble.className = 'msg me';
       userBubble.innerHTML = `
-        <div class="who"><b>${t('you')}</b></div>
-        <div class="bubble">${content}</div>
+        <div class="ava a-user">${t('you')[0]}</div>
+        <div>
+          <div class="who"><b>${t('you')}</b></div>
+          <div class="bubble">${content}</div>
+        </div>
       `;
       stream.appendChild(userBubble);
       stream.scrollTop = stream.scrollHeight;
