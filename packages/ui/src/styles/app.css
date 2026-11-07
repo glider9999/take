@@ -643,6 +643,7 @@ body {
 }
 
 .composer {
+  position: relative;
   border-top: 1px solid #E3DCCB;
   padding: 12px 16px;
   display: flex;
